@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { sb, addDays, startOfDay } from './lib.js'
 import { Onboarding } from './Auth.jsx'
 import { BookingsList, NewBooking } from './Bookings.jsx'
+import { CalendarView } from './Calendar.jsx'
 import { ClientsTab, ClientSheet } from './Clients.jsx'
 import { Services, Hours, Blocks, Settings } from './Admin.jsx'
 
@@ -36,6 +37,7 @@ export default function Panel({ session }) {
   const [loadError, setLoadError] = useState('')
   const [clientId, setClientId] = useState(null)
   const [newFor, setNewFor] = useState(undefined) // undefined = fechado; null = sem cliente; objeto = cliente
+  const [newAt, setNewAt] = useState(null) // hora escolhida na grelha da agenda
 
   const load = useCallback(async () => {
     const { data, error } = await sb.from('salons').select('*, services(count)').eq('owner_id', session.user.id).order('created_at')
@@ -89,7 +91,7 @@ export default function Panel({ session }) {
   if (salon === null) return <Onboarding email={session.user.email ?? ''} onDone={load} />
 
   const needsSetup = services.length === 0 || hours.length === 0
-  const go = (t) => { setTab(t); setClientId(null); setNewFor(undefined) }
+  const go = (t) => { setTab(t); setClientId(null); setNewFor(undefined); setNewAt(null) }
   const openClient = (id) => { setTab('clients'); setClientId(id); setNewFor(undefined); window.scrollTo(0, 0) }
   const newBooking = (client) => { setTab('agenda'); setClientId(null); setNewFor(client ?? null); window.scrollTo(0, 0) }
 
@@ -120,12 +122,23 @@ export default function Panel({ session }) {
 
       {tab === 'agenda' && (
         newFor !== undefined ? (
-          <NewBooking salon={salon} services={services} clients={clients} bookings={bookings} presetClient={newFor} onCancel={() => setNewFor(undefined)} onDone={() => { setNewFor(undefined); load() }} />
+          <NewBooking salon={salon} services={services} clients={clients} bookings={bookings} presetClient={newFor} presetStart={newAt} onCancel={() => { setNewFor(undefined); setNewAt(null) }} onDone={() => { setNewFor(undefined); setNewAt(null); load() }} />
         ) : (
-          <button className="btn primary small" style={{ marginBottom: 14 }} onClick={() => setNewFor(null)}>+ Nova marcação</button>
+          <>
+            <button className="btn primary small" style={{ marginBottom: 14 }} onClick={() => { setNewAt(null); setNewFor(null) }}>+ Nova marcação</button>
+            <CalendarView
+              salon={salon}
+              hours={hours}
+              refreshKey={bookings}
+              reload={load}
+              openClient={openClient}
+              onNew={(at) => { setNewAt(at); setNewFor(null); window.scrollTo(0, 0) }}
+              listView={<BookingsList salon={salon} bookings={bookings} mode="agenda" reload={load} openClient={openClient} />}
+            />
+          </>
         )
       )}
-      {(tab === 'pending' || (tab === 'agenda' && newFor === undefined)) && <BookingsList salon={salon} bookings={bookings} mode={tab} reload={load} openClient={openClient} />}
+      {tab === 'pending' && <BookingsList salon={salon} bookings={bookings} mode={tab} reload={load} openClient={openClient} />}
       {tab === 'clients' && (clientId
         ? <ClientSheet salon={salon} clientId={clientId} clients={clients} reload={load} onClose={() => setClientId(null)} onNewBooking={newBooking} />
         : <ClientsTab salon={salon} clients={clients} reload={load} openClient={openClient} />)}

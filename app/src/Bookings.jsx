@@ -8,7 +8,7 @@ function confirmText(b, salon) {
   return `Olá ${b.client_name.split(' ')[0]}! A sua marcação de ${bookingLabel(b)} no ${salon.name} está confirmada para ${fDay(b.starts_at)} às ${fTime(b.starts_at)}. Para ver ou alterar: ${location.href.split('#')[0]}#/m/${b.manage_token} 🌿`
 }
 
-export function BookingsList({ salon, bookings, mode, reload, openClient }) {
+export function BookingsList({ salon, bookings, items, mode, reload, openClient }) {
   const [busyId, setBusyId] = useState('')
   const [error, setError] = useState('')
   const [confirmCancel, setConfirmCancel] = useState('')
@@ -32,7 +32,7 @@ export function BookingsList({ salon, bookings, mode, reload, openClient }) {
     reload()
   }
 
-  const list = bookings.filter((b) =>
+  const list = items ?? bookings.filter((b) =>
     mode === 'pending'
       ? b.status === 'pending' && new Date(b.ends_at) > new Date()
       : b.status === 'confirmed' && new Date(b.ends_at) > new Date(Date.now() - 12 * 36e5),
@@ -130,15 +130,15 @@ function ReminderBadge({ b, salon, busy, onToggle }) {
 }
 
 // Marcação feita pela profissional (WhatsApp, telefone, balcão)
-export function NewBooking({ salon, services, clients, bookings, presetClient, onDone, onCancel }) {
+export function NewBooking({ salon, services, clients, bookings, presetClient, presetStart, onDone, onCancel }) {
   const active = services.filter((s) => s.active)
   const [clientId, setClientId] = useState(presetClient?.id ?? '')
   const [q, setQ] = useState('')
   const [isNew, setIsNew] = useState(false)
   const [nc, setNc] = useState({ name: '', phone: '', email: '' })
   const [picked, setPicked] = useState([])
-  const [date, setDate] = useState(isoDate(new Date()))
-  const [time, setTime] = useState('10:00')
+  const [date, setDate] = useState(isoDate(presetStart ?? new Date()))
+  const [time, setTime] = useState(presetStart ? fTime(presetStart) : '10:00')
   const [notes, setNotes] = useState('')
   const [remind, setRemind] = useState(true)
   const [busy, setBusy] = useState(false)
