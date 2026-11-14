@@ -29,3 +29,8 @@
 .name-link { padding: 0; text-align: left; color: var(--ink); text-decoration: underline; text-decoration-color: var(--line); text-underline-offset: 3px }
 .inline-label select { margin-left: 6px; width: auto; display: inline-block }
 input[type=search] { width: 100% }
+.rem { display: inline-block; border-radius: 999px; padding: 2px 10px; background: var(--bg); border: 1px solid var(--line); width: fit-content; font: inherit; font-size: .8rem }
+.rem.toggle { cursor: pointer; color: var(--muted) }
+.rem.toggle.on { color: var(--leaf); border-color: var(--leaf-soft); background: var(--leaf-soft) }
+.rem.ok { color: var(--leaf); background: var(--leaf-soft); border-color: var(--leaf-soft) }
+.rem.bad { color: var(--danger); border-color: #f2c9c6 }

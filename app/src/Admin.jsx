@@ -234,6 +234,7 @@ function CopyField({ label, value }) {
 export function Settings({ salon, reload }) {
   const [f, setF] = useState({
     name: salon.name, phone: salon.phone ?? '', address: salon.address ?? '', notify_email: salon.notify_email ?? '',
+    wa_reminders_enabled: salon.wa_reminders_enabled, wa_reminder_hours: salon.wa_reminder_hours,
     min_notice_hours: salon.min_notice_hours, max_days_ahead: salon.max_days_ahead, cancel_limit_hours: salon.cancel_limit_hours, slot_step_min: salon.slot_step_min,
   })
   const [ok, setOk] = useState('')
@@ -282,6 +283,20 @@ export function Settings({ salon, reload }) {
         </details>
         <button className="link small" onClick={newToken}>Gerar novo link</button>
       </section>
+      {salon.wa_phone_number_id && (
+        <form className="card stack" onSubmit={save}>
+          <h3>Lembretes automáticos por WhatsApp</h3>
+          <p className="muted small">Enviados pelo número do salão às marcações confirmadas com telemóvel (entre as 9h e as 21h). Pode desligar o lembrete de uma marcação na Agenda.</p>
+          <label className="check"><input type="checkbox" checked={f.wa_reminders_enabled} onChange={(e) => setF({ ...f, wa_reminders_enabled: e.target.checked })} /> Enviar lembretes automáticos</label>
+          <label>
+            Enviar
+            <select value={f.wa_reminder_hours} onChange={num('wa_reminder_hours')}>
+              {[12, 24, 36, 48].map((h) => <option key={h} value={h}>{h} horas antes</option>)}
+            </select>
+          </label>
+          <button className="btn primary">Guardar</button>
+        </form>
+      )}
       <form className="card stack" onSubmit={save}>
         <h3>Dados e regras</h3>
         {ok && <p className="notice">{ok}</p>}

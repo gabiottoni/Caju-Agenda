@@ -14,6 +14,14 @@ export function BookingsList({ salon, bookings, mode, reload, openClient }) {
   const [confirmCancel, setConfirmCancel] = useState('')
   const [approved, setApproved] = useState(null)
 
+  async function toggleReminder(b) {
+    setBusyId(b.id)
+    const { error } = await sb.from('bookings').update({ wa_reminder: !b.wa_reminder }).eq('id', b.id)
+    setBusyId('')
+    if (error) return setError(errMsg(error))
+    reload()
+  }
+
   async function setStatus(b, status) {
     setBusyId(b.id); setError('')
     const { error } = await sb.from('bookings').update({ status, cancelled_by: status === 'cancelled' ? 'salon' : null }).eq('id', b.id)
@@ -79,6 +87,7 @@ export function BookingsList({ salon, bookings, mode, reload, openClient }) {
                   </span>
                   {b.notes && <span className="note">“{b.notes}”</span>}
                   {mode === 'pending' && <span className="muted small">Pedido em {fShort(b.created_at)}</span>}
+                  {salon.wa_phone_number_id && b.client_phone && <ReminderBadge b={b} salon={salon} busy={busyId === b.id} onToggle={() => toggleReminder(b)} />}
                   <div className="row-actions">
                     {mode === 'pending' ? (
                       <>
@@ -108,6 +117,18 @@ export function BookingsList({ salon, bookings, mode, reload, openClient }) {
   )
 }
 
+function ReminderBadge({ b, salon, busy, onToggle }) {
+  if (b.wa_reminder_status === 'sent') return <span className="small rem ok">📲 Lembrete enviado ✓ {b.reminder_sent_at && fShort(b.reminder_sent_at)} {b.reminder_sent_at && fTime(b.reminder_sent_at)}</span>
+  if (b.wa_reminder_status === 'failed') return <span className="small rem bad" title={b.wa_reminder_error ?? ''}>📲 Lembrete falhou — {b.wa_reminder_error}</span>
+  if (b.wa_reminder_status === 'skipped') return <span className="small rem muted">📲 Lembrete não enviado ({b.wa_reminder_error})</span>
+  return (
+    <button type="button" className={`small rem toggle ${b.wa_reminder ? 'on' : ''}`} disabled={busy} onClick={onToggle} title="Ligar/desligar o lembrete automático desta marcação">
+      📲 Lembrete {b.wa_reminder ? `automático ${salon.wa_reminder_hours} h antes` : 'desligado'}
+      {b.wa_reminder && !salon.wa_reminders_enabled && ' (ative nas Definições)'}
+    </button>
+  )
+}
+
 // Marcação feita pela profissional (WhatsApp, telefone, balcão)
 export function NewBooking({ salon, services, clients, bookings, presetClient, onDone, onCancel }) {
   const active = services.filter((s) => s.active)
@@ -119,6 +140,7 @@ export function NewBooking({ salon, services, clients, bookings, presetClient, o
   const [date, setDate] = useState(isoDate(new Date()))
   const [time, setTime] = useState('10:00')
   const [notes, setNotes] = useState('')
+  const [remind, setRemind] = useState(true)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
 
@@ -173,6 +195,7 @@ export function NewBooking({ salon, services, clients, bookings, presetClient, o
       ends_at: end.toISOString(),
       status: 'confirmed',
       source: 'salon',
+      wa_reminder: remind,
     })
     setBusy(false)
     if (error) return setError(errMsg(error))
@@ -229,6 +252,9 @@ export function NewBooking({ salon, services, clients, bookings, presetClient, o
       </div>
       {clash && <p className="notice small">Atenção: sobrepõe-se a {clash.client_name} ({fTime(clash.starts_at)}–{fTime(clash.ends_at)}).</p>}
       <label>Notas <span className="muted">(opcional)</span><textarea rows={2} maxLength={500} value={notes} onChange={(e) => setNotes(e.target.value)} /></label>
+      {salon.wa_phone_number_id && (
+        <label className="check"><input type="checkbox" checked={remind} onChange={(e) => setRemind(e.target.checked)} /> Enviar lembrete automático por WhatsApp {salon.wa_reminder_hours} h antes</label>
+      )}
       <div className="row-actions">
         <button className="btn primary" disabled={busy}>{busy ? 'A guardar…' : 'Guardar marcação'}</button>
         <button type="button" className="btn ghost" onClick={onCancel}>Cancelar</button>
