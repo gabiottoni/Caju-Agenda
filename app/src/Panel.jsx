@@ -5,6 +5,7 @@ import { BookingsList, NewBooking } from './Bookings.jsx'
 import { CalendarView } from './Calendar.jsx'
 import { ClientsTab, ClientSheet } from './Clients.jsx'
 import { Services, Hours, Blocks, Settings } from './Admin.jsx'
+import { InstallHint } from './Push.jsx'
 
 const TABS = [
   ['pending', 'Pedidos'],
@@ -104,6 +105,7 @@ export default function Panel({ session }) {
         </div>
         <button className="link small" onClick={() => sb.auth.signOut()}>Sair</button>
       </header>
+      <InstallHint />
       {needsSetup && (
         <p className="notice">
           Para começar: {services.length === 0 && <button className="link" onClick={() => go('services')}>adicione serviços</button>}

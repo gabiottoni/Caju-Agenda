@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { PushCard } from './Push.jsx'
 import { sb, errMsg, fDur, fMoney, WEEKDAYS, isoDate, addDays, fDay, fTime, SUPABASE_URL } from './lib.js'
 
 const EMPTY = { name: '', description: '', duration: '30', price: '' }
@@ -257,6 +258,7 @@ export function Settings({ salon, reload }) {
 
   return (
     <div className="stack">
+      <PushCard salon={salon} />
       <section className="card stack">
         <h3>Link para as clientes</h3>
         <p className="muted small">Ponha na bio do Instagram, no WhatsApp Business e no Google.</p>
