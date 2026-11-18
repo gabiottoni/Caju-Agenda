@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import SlotPicker from './SlotPicker.jsx'
-import { sb, notify, errMsg, fDayTime, googleCalUrl, bookingLabel } from './lib.js'
+import { sb, notify, errMsg, fDayTime, googleCalUrl, bookingLabel, clientIcsUrl, mapsLink } from './lib.js'
 
 const STATUS = {
   pending: ['A aguardar confirmação', 'pending'],
@@ -77,16 +77,20 @@ export default function ManagePage() {
         <span className={`badge ${cls}`}>{label}</span>
         <strong>{name}</strong>
         <span>{fDayTime(bk.starts_at)}</span>
-        {bk.salon_address && <span className="muted small">{bk.salon_address}</span>}
+        {bk.salon_address && (
+          <a className="small" target="_blank" rel="noreferrer" href={mapsLink({ address: bk.salon_address, maps_url: salon?.maps_url })}>📍 {bk.salon_address}</a>
+        )}
       </div>
 
       {mode === 'view' && active && (
         <div className="stack">
-          {bk.status === 'confirmed' && (
-            <a className="btn" target="_blank" rel="noreferrer" href={googleCalUrl(`${name} · ${bk.salon_name}`, bk.starts_at, bk.ends_at, location.href, bk.salon_address ?? '')}>
-              Adicionar ao Google Calendar
-            </a>
-          )}
+          <div className="cal-add">
+            <span className="small muted">Pôr na minha agenda com lembrete:</span>
+            <div className="row-actions">
+              <a className="btn small" href={clientIcsUrl(token)}>📅 iPhone / Outlook</a>
+              <a className="btn small" target="_blank" rel="noreferrer" href={googleCalUrl(`${name} · ${bk.salon_name}`, bk.starts_at, bk.ends_at, location.href, bk.salon_address ?? '')}>Google Agenda</a>
+            </div>
+          </div>
           {locked ? (
             <p className="muted small center-text">
               Alterações online só até {bk.cancel_limit_hours} h antes.

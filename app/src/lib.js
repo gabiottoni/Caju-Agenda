@@ -85,3 +85,10 @@ export const validPhone = (p) => phoneDigits(p).length >= 9
 // nomes dos serviços de uma marcação (aceita o formato antigo)
 export const bookingServices = (b) => (Array.isArray(b.services) && b.services.length ? b.services : [{ id: b.service_id, name: b.service_name }])
 export const bookingLabel = (b) => b.service_name || bookingServices(b).map((s) => s.name).join(' + ')
+
+// link do Google Maps do salão (o definido nas Definições ou a partir da morada)
+export const mapsLink = (salon) =>
+  salon?.maps_url || (salon?.address ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(salon.address)}` : '')
+
+// .ics da marcação da cliente (para pôr na agenda dela — iPhone, Outlook, Android)
+export const clientIcsUrl = (token) => `${SUPABASE_URL}/functions/v1/calendar-feed?m=${token}`

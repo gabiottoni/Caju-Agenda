@@ -34,3 +34,21 @@ input[type=search] { width: 100% }
 .rem.toggle.on { color: var(--leaf); border-color: var(--leaf-soft); background: var(--leaf-soft) }
 .rem.ok { color: var(--leaf); background: var(--leaf-soft); border-color: var(--leaf-soft) }
 .rem.bad { color: var(--danger); border-color: #f2c9c6 }
+.card.editing { border-color: var(--brand); box-shadow: 0 0 0 2px color-mix(in srgb, var(--brand) 20%, transparent) }
+/* faturação */
+.rev-cards { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px }
+.rev-cards .card { display: flex; flex-direction: column; gap: 2px; padding: 14px }
+.rev-cards strong { font-size: 1.35rem; font-variant-numeric: tabular-nums }
+.rev-main { grid-column: 1 / -1; background: var(--leaf-soft) }
+.rev-main strong { font-size: 1.9rem }
+.up { color: var(--leaf); font-weight: 600 } .down { color: var(--danger); font-weight: 600 }
+.rev-bars { display: flex; gap: 4px; align-items: stretch; height: 150px }
+.rev-bars.month { gap: 2px }
+.rev-bar { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 0 }
+.rev-col { flex: 1; width: 100%; display: flex; flex-direction: column; justify-content: flex-end; background: var(--bg); border-radius: 6px; overflow: hidden }
+.rev-col .done { background: var(--brand) } .rev-col .fut { background: color-mix(in srgb, var(--brand) 35%, white) }
+.rev-lbl { font-size: .68rem; color: var(--muted) }
+.dot { display: inline-block; width: 10px; height: 10px; border-radius: 3px; vertical-align: -1px }
+.dot.done { background: var(--brand) } .dot.fut { background: color-mix(in srgb, var(--brand) 35%, white) }
+.rev-row { display: flex; gap: 10px; align-items: baseline; padding: 6px 0; border-top: 1px solid var(--line) }
+.rev-row:first-of-type { border-top: 0 }

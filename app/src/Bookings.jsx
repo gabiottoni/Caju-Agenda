@@ -1,18 +1,83 @@
 import { useMemo, useState } from 'react'
-import { sb, notify, errMsg, sameDay, fDay, fShort, fTime, googleCalUrl, waLink, bookingLabel, isoDate, fDur, fMoney } from './lib.js'
+import { sb, notify, errMsg, sameDay, fDay, fShort, fTime, googleCalUrl, waLink, bookingLabel, isoDate, fDur, fMoney, mapsLink } from './lib.js'
 
 function reminderText(b, salon) {
   return `Olá ${b.client_name.split(' ')[0]}! Lembrete da sua marcação de ${bookingLabel(b)} no ${salon.name}: ${fDay(b.starts_at)} às ${fTime(b.starts_at)}. Até já! 🌿`
 }
-function confirmText(b, salon) {
-  return `Olá ${b.client_name.split(' ')[0]}! A sua marcação de ${bookingLabel(b)} no ${salon.name} está confirmada para ${fDay(b.starts_at)} às ${fTime(b.starts_at)}. Para ver ou alterar: ${location.href.split('#')[0]}#/m/${b.manage_token} 🌿`
+const manageUrl = (b) => `${location.href.split('#')[0]}#/m/${b.manage_token}`
+
+// firstVisit: inclui o link do Google Maps para quem vem pela primeira vez
+function confirmText(b, salon, firstVisit = false) {
+  const maps = firstVisit && mapsLink(salon)
+  return [
+    `Olá ${b.client_name.split(' ')[0]}! A sua marcação de ${bookingLabel(b)} no ${salon.name} está confirmada para ${fDay(b.starts_at)} às ${fTime(b.starts_at)} 🌿`,
+    maps && `📍 Como chegar: ${maps}`,
+    `Ver, remarcar ou pôr na sua agenda: ${manageUrl(b)}`,
+  ].filter(Boolean).join('\n\n')
+}
+function movedText(b, salon, start) {
+  return `Olá ${b.client_name.split(' ')[0]}! A sua marcação de ${bookingLabel(b)} no ${salon.name} passou para ${fDay(start)} às ${fTime(start)}. Qualquer dúvida é só dizer 🌿\n\nVer ou pôr na sua agenda: ${manageUrl(b)}`
+}
+
+// Muda o horário de uma marcação (mantém a duração). Devolve a mensagem de erro, se houver.
+export async function moveBooking(b, start) {
+  const dur = new Date(b.ends_at) - new Date(b.starts_at)
+  const { error } = await sb.from('bookings').update({
+    starts_at: start.toISOString(),
+    ends_at: new Date(start.getTime() + dur).toISOString(),
+    reminder_sent_at: null, wa_reminder_status: null, wa_reminder_error: null,
+  }).eq('id', b.id)
+  return error ? errMsg(error) : ''
+}
+
+export function MovedNotice({ moved, salon, onClose }) {
+  if (!moved) return null
+  const { b, start } = moved
+  return (
+    <p className="notice">
+      {b.client_name} passou para {fDay(start)} às {fTime(start)}.{' '}
+      {b.client_phone && <a target="_blank" rel="noreferrer" href={waLink(b.client_phone, movedText(b, salon, start))} onClick={onClose}>Avisar por WhatsApp</a>}
+      {!b.client_phone && b.client_email && <a href={`mailto:${b.client_email}?subject=${encodeURIComponent('Marcação alterada')}&body=${encodeURIComponent(movedText(b, salon, start))}`} onClick={onClose}>Avisar por e-mail</a>}
+      {' · '}<button className="link small" onClick={onClose}>fechar</button>
+    </p>
+  )
+}
+
+function MoveForm({ b, onDone, onCancel }) {
+  const [date, setDate] = useState(isoDate(new Date(b.starts_at)))
+  const [time, setTime] = useState(fTime(b.starts_at))
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState('')
+  async function save() {
+    const [y, m, d] = date.split('-').map(Number)
+    const [hh, mm] = time.split(':').map(Number)
+    const start = new Date(y, m - 1, d, hh, mm)
+    setBusy(true)
+    const e = await moveBooking(b, start)
+    setBusy(false)
+    if (e) return setErr(e)
+    onDone(start)
+  }
+  return (
+    <div className="stack tight move-form">
+      {err && <p className="alert small">{err}</p>}
+      <div className="inline-form">
+        <input type="date" value={date} onChange={(e) => setDate(e.target.value)} aria-label="Novo dia" />
+        <input type="time" step={300} value={time} onChange={(e) => setTime(e.target.value)} aria-label="Nova hora" />
+        <button className="btn small primary" disabled={busy} onClick={save}>{busy ? '…' : 'Guardar'}</button>
+        <button className="btn small ghost" onClick={onCancel}>×</button>
+      </div>
+    </div>
+  )
 }
 
 export function BookingsList({ salon, bookings, items, mode, reload, openClient }) {
   const [busyId, setBusyId] = useState('')
   const [error, setError] = useState('')
   const [confirmCancel, setConfirmCancel] = useState('')
-  const [approved, setApproved] = useState(null)
+  const [approved, setApproved] = useState(null) // { b, first }
+  const [moving, setMoving] = useState('')
+  const [moved, setMoved] = useState(null)
 
   async function toggleReminder(b) {
     setBusyId(b.id)
@@ -28,7 +93,13 @@ export function BookingsList({ salon, bookings, items, mode, reload, openClient 
     setBusyId(''); setConfirmCancel('')
     if (error) return setError(errMsg(error))
     notify({ event: status === 'cancelled' ? 'cancelled_by_salon' : status, booking_id: b.id })
-    setApproved(status === 'confirmed' ? b : null)
+    let first = false
+    if (status === 'confirmed' && b.client_id) {
+      const { count } = await sb.from('bookings').select('id', { count: 'exact', head: true })
+        .eq('client_id', b.client_id).eq('status', 'confirmed').neq('id', b.id).lt('starts_at', b.starts_at)
+      first = !count
+    } else if (status === 'confirmed') first = true
+    setApproved(status === 'confirmed' ? { b, first } : null)
     reload()
   }
 
@@ -37,15 +108,21 @@ export function BookingsList({ salon, bookings, items, mode, reload, openClient 
       ? b.status === 'pending' && new Date(b.ends_at) > new Date()
       : b.status === 'confirmed' && new Date(b.ends_at) > new Date(Date.now() - 12 * 36e5),
   )
-  const approvedNotice = approved && (
-    <p className="notice">
-      Marcação de {approved.client_name} confirmada.{' '}
-      {approved.client_phone ? (
-        <a target="_blank" rel="noreferrer" href={waLink(approved.client_phone, confirmText(approved, salon))} onClick={() => setApproved(null)}>Avisar por WhatsApp</a>
-      ) : approved.client_email ? (
-        <a href={`mailto:${approved.client_email}?subject=${encodeURIComponent('Marcação confirmada')}&body=${encodeURIComponent(confirmText(approved, salon))}`} onClick={() => setApproved(null)}>Avisar por e-mail</a>
-      ) : null}
-    </p>
+  const ab = approved?.b
+  const approvedNotice = (
+    <>
+      {ab && (
+        <p className="notice">
+          Marcação de {ab.client_name} confirmada{approved.first && mapsLink(salon) ? ' (1ª visita — a mensagem leva o link do mapa)' : ''}.{' '}
+          {ab.client_phone ? (
+            <a target="_blank" rel="noreferrer" href={waLink(ab.client_phone, confirmText(ab, salon, approved.first))} onClick={() => setApproved(null)}>Avisar por WhatsApp</a>
+          ) : ab.client_email ? (
+            <a href={`mailto:${ab.client_email}?subject=${encodeURIComponent('Marcação confirmada')}&body=${encodeURIComponent(confirmText(ab, salon, approved.first))}`} onClick={() => setApproved(null)}>Avisar por e-mail</a>
+          ) : null}
+        </p>
+      )}
+      <MovedNotice moved={moved} salon={salon} onClose={() => setMoved(null)} />
+    </>
   )
   if (list.length === 0) return <div className="stack">{approvedNotice}<p className="empty">{mode === 'pending' ? 'Nenhum pedido à espera. ☕' : 'Sem marcações confirmadas por agora.'}</p></div>
 
@@ -99,8 +176,11 @@ export function BookingsList({ salon, bookings, items, mode, reload, openClient 
                         <button className="btn small danger-fill" disabled={busyId === b.id} onClick={() => setStatus(b, 'cancelled')}>Confirmar cancelamento</button>
                         <button className="btn small ghost" onClick={() => setConfirmCancel('')}>Voltar</button>
                       </>
+                    ) : moving === b.id ? (
+                      <MoveForm b={b} onCancel={() => setMoving('')} onDone={(start) => { setMoving(''); setMoved({ b, start }); reload() }} />
                     ) : (
                       <>
+                        <button className="btn small ghost" onClick={() => setMoving(b.id)}>Mudar horário</button>
                         {b.client_phone && <a className="btn small ghost" target="_blank" rel="noreferrer" href={waLink(b.client_phone, reminderText(b, salon))}>WhatsApp</a>}
                         <a className="btn small ghost" target="_blank" rel="noreferrer" href={googleCalUrl(`${bookingLabel(b)} — ${b.client_name}`, b.starts_at, b.ends_at, [b.client_phone, b.client_email, b.notes].filter(Boolean).join('\n'))}>+ Google</a>
                         <button className="btn small ghost danger" onClick={() => setConfirmCancel(b.id)}>Cancelar</button>

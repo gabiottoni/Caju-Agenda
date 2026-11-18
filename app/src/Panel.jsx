@@ -6,11 +6,15 @@ import { CalendarView } from './Calendar.jsx'
 import { ClientsTab, ClientSheet } from './Clients.jsx'
 import { Services, Hours, Blocks, Settings } from './Admin.jsx'
 import { InstallHint } from './Push.jsx'
+import { RevenueTab } from './Revenue.jsx'
+import { MessagesTab } from './Messages.jsx'
 
 const TABS = [
   ['pending', 'Pedidos'],
   ['agenda', 'Agenda'],
   ['clients', 'Clientes'],
+  ['revenue', 'Faturação'],
+  ['messages', 'Mensagens'],
   ['services', 'Serviços'],
   ['hours', 'Horários'],
   ['blocks', 'Bloqueios'],
@@ -144,6 +148,8 @@ export default function Panel({ session }) {
       {tab === 'clients' && (clientId
         ? <ClientSheet salon={salon} clientId={clientId} clients={clients} reload={load} onClose={() => setClientId(null)} onNewBooking={newBooking} />
         : <ClientsTab salon={salon} clients={clients} reload={load} openClient={openClient} />)}
+      {tab === 'revenue' && <RevenueTab salon={salon} services={services} />}
+      {tab === 'messages' && <MessagesTab salon={salon} openClient={openClient} />}
       {tab === 'services' && <Services salon={salon} services={services} reload={load} />}
       {tab === 'hours' && <Hours salon={salon} hours={hours} reload={load} />}
       {tab === 'blocks' && <Blocks salon={salon} blocks={blocks} reload={load} />}

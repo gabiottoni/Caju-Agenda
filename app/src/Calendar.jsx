@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { sb, addDays, startOfDay, sameDay as sameDayD, fTime, fDay, toMin, bookingLabel, pad } from './lib.js'
-import { BookingsList } from './Bookings.jsx'
+import { BookingsList, moveBooking, MovedNotice } from './Bookings.jsx'
 import './calendar.css'
 
 const VIEWS = [
@@ -102,6 +102,8 @@ export function CalendarView({ salon, hours, refreshKey, reload, openClient, onN
   const [data, setData] = useState({ key: '', bookings: [], blocks: [] })
   const [selected, setSelected] = useState(null)
   const [now, setNow] = useState(() => new Date())
+  const [moved, setMoved] = useState(null)
+  const [moveErr, setMoveErr] = useState('')
 
   useEffect(() => { const t = setInterval(() => setNow(new Date()), 60000); return () => clearInterval(t) }, [])
 
@@ -128,6 +130,20 @@ export function CalendarView({ salon, hours, refreshKey, reload, openClient, onN
   const sel = selected && bookings.find((b) => b.id === selected)
 
   function pick(v) { setView(v); saveView(v); setSelected(null) }
+
+  // arrastar um card para outro horário
+  async function onMove(b, start) {
+    const end = new Date(start.getTime() + (new Date(b.ends_at) - new Date(b.starts_at)))
+    const clash = bookings.find((x) => x.id !== b.id && new Date(x.starts_at) < end && new Date(x.ends_at) > start)
+    const msg = `Mudar ${b.client_name} para ${fDay(start)} às ${fTime(start)}?` + (clash ? `\n\nAtenção: fica por cima de ${clash.client_name} (${fTime(clash.starts_at)}).` : '')
+    if (!window.confirm(msg)) return
+    setMoveErr('')
+    const e = await moveBooking(b, start)
+    if (e) return setMoveErr(e)
+    setData((d) => ({ ...d, bookings: d.bookings.map((x) => (x.id === b.id ? { ...x, starts_at: start.toISOString(), ends_at: end.toISOString() } : x)) }))
+    setMoved({ b, start })
+    reload()
+  }
   function openDay(d) { setCursor(startOfDay(d)); pick('day') }
 
   const nav = view !== 'list' && (
@@ -148,14 +164,16 @@ export function CalendarView({ salon, hours, refreshKey, reload, openClient, onN
         ))}
       </div>
       {nav}
+      {moveErr && <p className="alert">{moveErr}</p>}
+      <MovedNotice moved={moved} salon={salon} onClose={() => setMoved(null)} />
       {view === 'list' && listView}
       {view === 'day' && (
         <TimeGrid days={[startOfDay(cursor)]} hours={hours} bookings={bookings} blocks={blocks} now={now} selected={selected}
-          onSelect={setSelected} onNew={onNew} pxPerHour={72} />
+          onSelect={setSelected} onNew={onNew} onMove={onMove} pxPerHour={72} />
       )}
       {view === 'week' && (
         <TimeGrid days={Array.from({ length: 7 }, (_, i) => addDays(from, i))} hours={hours} bookings={bookings} blocks={blocks} now={now}
-          selected={selected} onSelect={setSelected} onNew={onNew} onDay={openDay} pxPerHour={52} compact />
+          selected={selected} onSelect={setSelected} onNew={onNew} onMove={onMove} onDay={openDay} pxPerHour={52} compact />
       )}
       {view === 'month' && (
         <MonthGrid from={from} to={to} cursor={cursor} hours={hours} bookings={bookings} blocks={blocks} now={now} onDay={openDay} />
@@ -171,12 +189,77 @@ export function CalendarView({ salon, hours, refreshKey, reload, openClient, onN
   )
 }
 
-function TimeGrid({ days, hours, bookings, blocks, now, selected, onSelect, onNew, onDay, pxPerHour, compact }) {
+function TimeGrid({ days, hours, bookings, blocks, now, selected, onSelect, onNew, onMove, onDay, pxPerHour, compact }) {
   const [a, z] = hourSpan(hours, days, bookings)
   const px = pxPerHour / 60
   const height = (z - a) * px
   const ticks = []
   for (let m = a; m <= z; m += 60) ticks.push(m)
+
+  // ---- arrastar (rato: arrastar logo; toque: carregar ~0,4 s e depois arrastar) ----
+  const colRefs = useRef([])
+  const dragRef = useRef(null)
+  const [drag, setDrag] = useState(null) // { id, dayIdx, min }
+  const justDragged = useRef(false)
+
+  function minuteAt(clientY, dayIdx) {
+    const r = colRefs.current[dayIdx]?.getBoundingClientRect()
+    if (!r) return null
+    return a + ((clientY - r.top) / px)
+  }
+  function dayAt(clientX, fallback) {
+    const i = colRefs.current.findIndex((el) => { if (!el) return false; const r = el.getBoundingClientRect(); return clientX >= r.left && clientX <= r.right })
+    return i === -1 ? fallback : i
+  }
+
+  function startDrag(e, b, dayIdx) {
+    if (!onMove || e.button > 0) return
+    const startMin = minOf(b.starts_at)
+    const st = { b, dayIdx, x: e.clientX, y: e.clientY, grab: minuteAt(e.clientY, dayIdx) - startMin, active: e.pointerType === 'mouse' ? false : null, timer: null }
+    if (e.pointerType !== 'mouse') {
+      st.timer = setTimeout(() => { st.active = true; navigator.vibrate?.(15); setDrag({ id: b.id, dayIdx, min: startMin }) }, 400)
+    }
+    dragRef.current = st
+    const preventScroll = (ev) => { if (dragRef.current?.active) ev.preventDefault() }
+    const move = (ev) => {
+      const d = dragRef.current
+      if (!d) return
+      if (d.active === null) { // toque: mexeu antes do tempo = está a deslocar a página
+        if (Math.hypot(ev.clientX - d.x, ev.clientY - d.y) > 8) { clearTimeout(d.timer); end() }
+        return
+      }
+      if (!d.active) { if (Math.hypot(ev.clientX - d.x, ev.clientY - d.y) < 6) return; d.active = true }
+      const di = dayAt(ev.clientX, d.dayIdx)
+      let m = Math.round((minuteAt(ev.clientY, di) - d.grab) / 15) * 15
+      const dur = (new Date(d.b.ends_at) - new Date(d.b.starts_at)) / 6e4
+      m = Math.max(a, Math.min(z - Math.min(dur, z - a), m))
+      d.target = { dayIdx: di, min: m }
+      setDrag({ id: d.b.id, dayIdx: di, min: m })
+    }
+    const up = () => {
+      const d = dragRef.current
+      end()
+      if (!d?.active || !d.target) return
+      justDragged.current = true
+      setTimeout(() => { justDragged.current = false }, 50)
+      const day = days[d.target.dayIdx]
+      const start = new Date(day.getFullYear(), day.getMonth(), day.getDate(), Math.floor(d.target.min / 60), d.target.min % 60)
+      if (start.getTime() !== new Date(d.b.starts_at).getTime()) onMove(d.b, start)
+    }
+    function end() {
+      clearTimeout(dragRef.current?.timer)
+      dragRef.current = null
+      setDrag(null)
+      window.removeEventListener('pointermove', move)
+      window.removeEventListener('pointerup', up)
+      window.removeEventListener('pointercancel', end)
+      window.removeEventListener('touchmove', preventScroll)
+    }
+    window.addEventListener('pointermove', move)
+    window.addEventListener('pointerup', up)
+    window.addEventListener('pointercancel', end)
+    window.addEventListener('touchmove', preventScroll, { passive: false })
+  }
 
   function clickEmpty(e, day) {
     if (!onNew) return
@@ -209,7 +292,7 @@ function TimeGrid({ days, hours, bookings, blocks, now, selected, onSelect, onNe
               <span key={m} style={{ top: (m - a) * px }}>{pad(m / 60)}:00</span>
             ))}
           </div>
-          {days.map((d) => {
+          {days.map((d, di) => {
             const dayStart = startOfDay(d).getTime()
             const dayEnd = addDays(d, 1).getTime()
             const clip = (s, e) => {
@@ -224,7 +307,7 @@ function TimeGrid({ days, hours, bookings, blocks, now, selected, onSelect, onNe
             const dayBlocks = blocks.filter((b) => new Date(b.starts_at).getTime() < dayEnd && new Date(b.ends_at).getTime() > dayStart)
             const nowTop = sameDay(d, now) ? (minOf(now) - a) * px : null
             return (
-              <div key={d.toISOString()} className={`tg-col ${wh.length ? '' : 'closed'}`} onClick={(e) => e.target === e.currentTarget && clickEmpty(e, d)}>
+              <div key={d.toISOString()} ref={(el) => { colRefs.current[di] = el }} className={`tg-col ${wh.length ? '' : 'closed'} ${drag?.dayIdx === di ? 'drop' : ''}`} onClick={(e) => e.target === e.currentTarget && !justDragged.current && clickEmpty(e, d)}>
                 {ticks.slice(0, -1).map((m) => <div key={m} className="tg-line" style={{ top: (m - a) * px }} />)}
                 {wh.map((h) => (
                   <div key={h.id ?? h.start_time} className="tg-open" style={{ top: (toMin(h.start_time) - a) * px, height: (toMin(h.end_time) - toMin(h.start_time)) * px }} />
@@ -241,9 +324,11 @@ function TimeGrid({ days, hours, bookings, blocks, now, selected, onSelect, onNe
                   return (
                     <button
                       key={b.id}
-                      className={`tg-ev ${b.status} ${selected === b.id ? 'sel' : ''} ${short ? 'short' : ''}`}
+                      className={`tg-ev ${b.status} ${selected === b.id ? 'sel' : ''} ${short ? 'short' : ''} ${drag?.id === b.id ? 'dragging' : ''}`}
                       style={{ ...pos, left: `calc(${(lane / lanes) * 100}% + 2px)`, width: `calc(${100 / lanes}% - 4px)` }}
-                      onClick={() => onSelect(selected === b.id ? null : b.id)}
+                      onPointerDown={(e) => startDrag(e, b, di)}
+                      onContextMenu={(e) => onMove && e.preventDefault()}
+                      onClick={() => { if (!justDragged.current) onSelect(selected === b.id ? null : b.id) }}
                       title={`${fTime(b.starts_at)}–${fTime(b.ends_at)} · ${b.client_name} · ${bookingLabel(b)}${b.status === 'pending' ? ' (pedido por aprovar)' : ''}`}
                     >
                       <span className="tg-ev-time">{fTime(b.starts_at)}{!compact && `–${fTime(b.ends_at)}`}</span>
@@ -252,13 +337,24 @@ function TimeGrid({ days, hours, bookings, blocks, now, selected, onSelect, onNe
                     </button>
                   )
                 })}
+                {drag?.dayIdx === di && (() => {
+                  const b = bookings.find((x) => x.id === drag.id)
+                  if (!b) return null
+                  const dur = (new Date(b.ends_at) - new Date(b.starts_at)) / 6e4
+                  const hh = `${pad(Math.floor(drag.min / 60))}:${pad(drag.min % 60)}`
+                  return (
+                    <div className="tg-ghost" style={{ top: (drag.min - a) * px, height: Math.max(dur * px, 22) }}>
+                      <b>{hh}</b> {b.client_name.split(' ')[0]}
+                    </div>
+                  )
+                })()}
                 {nowTop !== null && nowTop >= 0 && nowTop <= height && <div className="tg-now" style={{ top: nowTop }} />}
               </div>
             )
           })}
         </div>
       </div>
-      {onNew && <p className="muted small tg-hint">Toque num espaço livre para marcar nesse horário.</p>}
+      {onNew && <p className="muted small tg-hint">Toque num espaço livre para marcar nesse horário. Para mudar uma marcação de horário, arraste o cartão (no telemóvel: carregue nele um instante e arraste).</p>}
     </div>
   )
 }

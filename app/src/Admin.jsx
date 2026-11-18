@@ -152,8 +152,23 @@ export function Hours({ salon, hours, reload }) {
 
 export function Blocks({ salon, blocks, reload }) {
   const today = isoDate(new Date())
-  const [f, setF] = useState({ from: today, to: today, allDay: true, start: '13:00', end: '14:00', reason: '' })
+  const EMPTY_B = { from: today, to: today, allDay: true, start: '13:00', end: '14:00', reason: '' }
+  const [f, setF] = useState(EMPTY_B)
+  const [editId, setEditId] = useState(null)
   const [error, setError] = useState('')
+
+  const isWhole = (s, t) => s.getHours() === 0 && s.getMinutes() === 0 && t.getHours() === 0 && t.getMinutes() === 0
+  const hhmm = (d) => `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+
+  function edit(b) {
+    const s = new Date(b.starts_at)
+    const t = new Date(b.ends_at)
+    const whole = isWhole(s, t)
+    setEditId(b.id); setError('')
+    setF({ from: isoDate(s), to: isoDate(whole ? addDays(t, -1) : s), allDay: whole, start: whole ? '13:00' : hhmm(s), end: whole ? '14:00' : hhmm(t), reason: b.reason ?? '' })
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+  function cancelEdit() { setEditId(null); setF(EMPTY_B); setError('') }
 
   async function save(e) {
     e.preventDefault(); setError('')
@@ -166,28 +181,36 @@ export function Blocks({ salon, blocks, reload }) {
       s = new Date(y, m - 1, d, h1, n1); t = new Date(y, m - 1, d, h2, n2)
     }
     if (t <= s) return setError('O fim tem de ser depois do início.')
-    const { error } = await sb.from('blocks').insert({ salon_id: salon.id, starts_at: s.toISOString(), ends_at: t.toISOString(), reason: f.reason || null })
+    const row = { starts_at: s.toISOString(), ends_at: t.toISOString(), reason: f.reason || null }
+    const { error } = editId
+      ? await sb.from('blocks').update(row).eq('id', editId)
+      : await sb.from('blocks').insert({ ...row, salon_id: salon.id })
     if (error) return setError(errMsg(error))
-    setF({ ...f, reason: '' }); reload()
+    setEditId(null); setF({ ...EMPTY_B, from: f.from, to: f.from }); reload()
   }
-  async function remove(id) { await sb.from('blocks').delete().eq('id', id); reload() }
+  async function remove(id) {
+    if (!confirm('Remover este bloqueio?')) return
+    await sb.from('blocks').delete().eq('id', id)
+    if (id === editId) cancelEdit()
+    reload()
+  }
   const future = blocks.filter((b) => new Date(b.ends_at) > new Date())
 
   return (
     <div className="stack">
-      <form className="card stack" onSubmit={save}>
-        <h3>Bloquear horário</h3>
-        <p className="muted small">Folgas, férias, dias no outro salão… As clientes deixam de ver estes horários.</p>
+      <form className={`card stack ${editId ? 'editing' : ''}`} onSubmit={save}>
+        <h3>{editId ? 'Editar bloqueio' : 'Bloquear horário'}</h3>
+        {!editId && <p className="muted small">Folgas, férias, dias no outro salão… As clientes deixam de ver estes horários.</p>}
         {error && <p className="alert">{error}</p>}
         <label className="check"><input type="checkbox" checked={f.allDay} onChange={(e) => setF({ ...f, allDay: e.target.checked })} /> Dia(s) inteiro(s)</label>
         {f.allDay ? (
           <div className="two">
-            <label>De<input type="date" required min={today} value={f.from} onChange={(e) => setF({ ...f, from: e.target.value, to: e.target.value > f.to ? e.target.value : f.to })} /></label>
+            <label>De<input type="date" required min={editId ? undefined : today} value={f.from} onChange={(e) => setF({ ...f, from: e.target.value, to: e.target.value > f.to ? e.target.value : f.to })} /></label>
             <label>Até<input type="date" required min={f.from} value={f.to} onChange={(e) => setF({ ...f, to: e.target.value })} /></label>
           </div>
         ) : (
           <>
-            <label>Dia<input type="date" required min={today} value={f.from} onChange={(e) => setF({ ...f, from: e.target.value })} /></label>
+            <label>Dia<input type="date" required min={editId ? undefined : today} value={f.from} onChange={(e) => setF({ ...f, from: e.target.value })} /></label>
             <div className="two">
               <label>Das<input type="time" required value={f.start} onChange={(e) => setF({ ...f, start: e.target.value })} /></label>
               <label>Às<input type="time" required value={f.end} onChange={(e) => setF({ ...f, end: e.target.value })} /></label>
@@ -195,7 +218,10 @@ export function Blocks({ salon, blocks, reload }) {
           </>
         )}
         <label>Motivo <span className="muted">(só você vê)</span><input maxLength={80} value={f.reason} onChange={(e) => setF({ ...f, reason: e.target.value })} placeholder="Ex.: SGART" /></label>
-        <button className="btn primary">Bloquear</button>
+        <div className="row-actions">
+          <button className="btn primary">{editId ? 'Guardar alterações' : 'Bloquear'}</button>
+          {editId && <button type="button" className="btn ghost" onClick={cancelEdit}>Cancelar</button>}
+        </div>
       </form>
       {future.length === 0 ? (
         <p className="empty">Nenhum bloqueio futuro.</p>
@@ -203,12 +229,15 @@ export function Blocks({ salon, blocks, reload }) {
         future.map((b) => {
           const s = new Date(b.starts_at)
           const t = new Date(b.ends_at)
-          const whole = s.getHours() === 0 && s.getMinutes() === 0 && t.getHours() === 0 && t.getMinutes() === 0
+          const whole = isWhole(s, t)
           const label = whole ? (t - s <= 864e5 ? fDay(s) : `${fDay(s)} → ${fDay(addDays(t, -1))}`) : `${fDay(s)}, ${fTime(s)}–${fTime(t)}`
           return (
-            <div key={b.id} className="card service-admin">
+            <div key={b.id} className={`card service-admin ${b.id === editId ? 'editing' : ''}`}>
               <div><strong>{label}</strong>{b.reason && <span className="muted small block">{b.reason}</span>}</div>
-              <button className="btn small ghost danger" onClick={() => remove(b.id)}>Remover</button>
+              <div className="row-actions">
+                <button className="btn small ghost" onClick={() => edit(b)}>Editar</button>
+                <button className="btn small ghost danger" onClick={() => remove(b.id)}>Remover</button>
+              </div>
             </div>
           )
         })
@@ -236,6 +265,7 @@ export function Settings({ salon, reload }) {
   const [f, setF] = useState({
     name: salon.name, phone: salon.phone ?? '', address: salon.address ?? '', notify_email: salon.notify_email ?? '',
     wa_reminders_enabled: salon.wa_reminders_enabled, wa_reminder_hours: salon.wa_reminder_hours,
+    maps_url: salon.maps_url ?? '', push_upcoming: salon.push_upcoming, push_upcoming_min: salon.push_upcoming_min,
     min_notice_hours: salon.min_notice_hours, max_days_ahead: salon.max_days_ahead, cancel_limit_hours: salon.cancel_limit_hours, slot_step_min: salon.slot_step_min,
   })
   const [ok, setOk] = useState('')
@@ -246,7 +276,7 @@ export function Settings({ salon, reload }) {
 
   async function save(e) {
     e.preventDefault(); setOk(''); setError('')
-    const { error } = await sb.from('salons').update({ ...f, phone: f.phone || null, address: f.address || null, notify_email: f.notify_email || null }).eq('id', salon.id)
+    const { error } = await sb.from('salons').update({ ...f, phone: f.phone || null, address: f.address || null, notify_email: f.notify_email || null, maps_url: f.maps_url.trim() || null }).eq('id', salon.id)
     if (error) return setError(errMsg(error))
     setOk('Guardado ✓'); reload()
   }
@@ -259,6 +289,18 @@ export function Settings({ salon, reload }) {
   return (
     <div className="stack">
       <PushCard salon={salon} />
+      <form className="card stack" onSubmit={save}>
+        <h3>⏰ Aviso da próxima cliente</h3>
+        <p className="muted small">Recebe uma notificação antes de uma cliente, <b>só quando há um intervalo antes dela</b> (sem outra cliente a terminar nesse período). Em dias de clientes seguidas não incomoda. Precisa das notificações ativas neste aparelho.</p>
+        <label className="check"><input type="checkbox" checked={f.push_upcoming} onChange={(e) => setF({ ...f, push_upcoming: e.target.checked })} /> Avisar antes da próxima cliente</label>
+        <label>
+          Avisar
+          <select value={f.push_upcoming_min} onChange={num('push_upcoming_min')}>
+            {[30, 45, 60, 90, 120].map((m) => <option key={m} value={m}>{m < 60 ? `${m} min` : `${m / 60} h`.replace('.5', ',5')} antes</option>)}
+          </select>
+        </label>
+        <button className="btn primary">Guardar</button>
+      </form>
       <section className="card stack">
         <h3>Link para as clientes</h3>
         <p className="muted small">Ponha na bio do Instagram, no WhatsApp Business e no Google.</p>
@@ -306,6 +348,11 @@ export function Settings({ salon, reload }) {
         <label>Nome<input required value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} /></label>
         <label>Telefone<input type="tel" value={f.phone} onChange={(e) => setF({ ...f, phone: e.target.value })} /></label>
         <label>Morada<input value={f.address} onChange={(e) => setF({ ...f, address: e.target.value })} /></label>
+        <label>
+          Link do Google Maps <span className="muted">(opcional)</span>
+          <input type="url" placeholder="https://maps.app.goo.gl/…" value={f.maps_url} onChange={(e) => setF({ ...f, maps_url: e.target.value })} />
+          <span className="muted small">Vai na mensagem de confirmação da 1ª visita da cliente. Sem link, usamos a morada acima.</span>
+        </label>
         <label>E-mail para avisos de pedidos<input type="email" value={f.notify_email} onChange={(e) => setF({ ...f, notify_email: e.target.value })} /></label>
         <div className="two">
           <label>Antecedência mínima (h)<input type="number" min={0} max={168} value={f.min_notice_hours} onChange={num('min_notice_hours')} /></label>
