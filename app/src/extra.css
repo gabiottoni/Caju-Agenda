@@ -87,3 +87,6 @@ h4.small { margin: 8px 0 0 }
 .progress span { display: block; height: 100%; background: var(--brand) }
 .pick-list { max-height: 360px; overflow-y: auto }
 .pick-list .hist-row { cursor: pointer; align-items: center }
+.map-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px }
+.map-grid label { gap: 4px }
+.import-sum { display: flex; flex-direction: column; gap: 4px; background: var(--bg); border-radius: 12px; padding: 10px 12px }

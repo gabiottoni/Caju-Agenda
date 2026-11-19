@@ -1,3 +1,4 @@
+import { ImportWizard } from './Import.jsx'
 import { useEffect, useMemo, useState } from 'react'
 import { sb, errMsg, fDate, fTime, waLink, bookingLabel, phoneDigits, validEmail } from './lib.js'
 
@@ -33,6 +34,7 @@ export function ClientsTab({ salon, clients, reload, openClient, onNewBooking })
   const [tag, setTag] = useState('')
   const [sort, setSort] = useState('recent')
   const [adding, setAdding] = useState(false)
+  const [importing, setImporting] = useState(false)
   const tags = useMemo(() => allTags(clients), [clients])
 
   const list = useMemo(() => {
@@ -57,8 +59,10 @@ export function ClientsTab({ salon, clients, reload, openClient, onNewBooking })
     <div className="stack">
       <div className="row-actions">
         <button className="btn primary small" onClick={() => setAdding(true)}>+ Nova cliente</button>
+        <button className="btn small ghost" onClick={() => setImporting(true)}>Importar (CSV)</button>
         <button className="btn small ghost" onClick={() => exportCsv(list, salon.name)}>Exportar {list.length} (CSV)</button>
       </div>
+      {importing && <ImportWizard salon={salon} clients={clients} reload={reload} onClose={() => setImporting(false)} />}
       {adding && <ClientForm salon={salon} tags={tags} onCancel={() => setAdding(false)} onSaved={(c) => { setAdding(false); reload(); openClient(c.id) }} />}
       <input type="search" placeholder="Procurar por nome, telemóvel ou e-mail" value={q} onChange={(e) => setQ(e.target.value)} />
       <div className="chips">
@@ -129,7 +133,7 @@ function TagEditor({ value, onChange, suggestions }) {
 }
 
 function ClientForm({ salon, client, tags, onSaved, onCancel }) {
-  const [f, setF] = useState({ name: client?.name ?? '', phone: client?.phone ?? '', email: client?.email ?? '', notes: client?.notes ?? '', tags: client?.tags ?? [] })
+  const [f, setF] = useState({ name: client?.name ?? '', phone: client?.phone ?? '', email: client?.email ?? '', notes: client?.notes ?? '', tags: client?.tags ?? [], birthday: client?.birthday ?? '' })
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const set = (k) => (e) => setF({ ...f, [k]: e.target.value })
@@ -139,7 +143,7 @@ function ClientForm({ salon, client, tags, onSaved, onCancel }) {
     setError('')
     if (f.email.trim() && !validEmail(f.email.trim())) return setError('E-mail inválido.')
     setBusy(true)
-    const row = { name: f.name.trim(), phone: f.phone.trim() || null, email: f.email.trim().toLowerCase() || null, notes: f.notes.trim() || null, tags: f.tags }
+    const row = { name: f.name.trim(), phone: f.phone.trim() || null, email: f.email.trim().toLowerCase() || null, notes: f.notes.trim() || null, tags: f.tags, birthday: f.birthday || null }
     const res = client
       ? await sb.from('clients').update(row).eq('id', client.id).select('*').single()
       : await sb.from('clients').insert({ ...row, salon_id: salon.id, source: 'salon' }).select('*').single()
@@ -156,6 +160,7 @@ function ClientForm({ salon, client, tags, onSaved, onCancel }) {
       <div className="two">
         <label>Telemóvel<input type="tel" value={f.phone} onChange={set('phone')} /></label>
         <label>E-mail<input type="email" value={f.email} onChange={set('email')} /></label>
+        <label>Data de nascimento<input type="date" value={f.birthday} onChange={set('birthday')} /></label>
       </div>
       <label>Notas<textarea rows={3} maxLength={2000} value={f.notes} onChange={set('notes')} placeholder="Preferências, cuidados, fototipo…" /></label>
       <div className="stack tight">
@@ -237,6 +242,7 @@ export function ClientSheet({ salon, clientId, clients, reload, onClose, onNewBo
             {client.phone && <span>📱 <a href={`tel:${client.phone}`}>{client.phone}</a></span>}
             {client.email && <span>✉️ <a href={`mailto:${client.email}`}>{client.email}</a></span>}
             {!client.phone && !client.email && <span className="muted">Sem telemóvel nem e-mail.</span>}
+            {client.birthday && <span>🎂 {new Intl.DateTimeFormat('pt-PT', { day: 'numeric', month: 'long' }).format(new Date(client.birthday + 'T12:00'))}</span>}
           </div>
           {(client.tags ?? []).length > 0 && <span className="tag-line">{client.tags.map((t) => <span key={t} className="tag">{t}</span>)}</span>}
           {client.notes && <p className="note" style={{ margin: 0 }}>{client.notes}</p>}
