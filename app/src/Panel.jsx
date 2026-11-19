@@ -8,12 +8,15 @@ import { Services, Hours, Blocks, Settings } from './Admin.jsx'
 import { InstallHint } from './Push.jsx'
 import { RevenueTab } from './Revenue.jsx'
 import { MessagesTab } from './Messages.jsx'
+import { BookingSheet } from './BookingSheet.jsx'
+import { ProductsTab } from './Products.jsx'
 
 const TABS = [
   ['pending', 'Pedidos'],
   ['agenda', 'Agenda'],
   ['clients', 'Clientes'],
   ['revenue', 'Faturação'],
+  ['products', 'Produtos'],
   ['messages', 'Mensagens'],
   ['services', 'Serviços'],
   ['hours', 'Horários'],
@@ -43,6 +46,7 @@ export default function Panel({ session }) {
   const [clientId, setClientId] = useState(null)
   const [newFor, setNewFor] = useState(undefined) // undefined = fechado; null = sem cliente; objeto = cliente
   const [newAt, setNewAt] = useState(null) // hora escolhida na grelha da agenda
+  const [bookingId, setBookingId] = useState(null) // pop-up da marcação
 
   const load = useCallback(async () => {
     const { data, error } = await sb.from('salons').select('*, services(count)').eq('owner_id', session.user.id).order('created_at')
@@ -118,7 +122,7 @@ export default function Panel({ session }) {
         </p>
       )}
       <nav className="tabs" role="tablist">
-        {TABS.map(([k, label]) => (
+        {TABS.filter(([k]) => k !== 'products' || salon.sell_products).map(([k, label]) => (
           <button key={k} role="tab" aria-selected={tab === k} className={tab === k ? 'on' : ''} onClick={() => go(k)}>
             {label}
             {k === 'pending' && pendingCount > 0 && <span className="count">{pendingCount}</span>}
@@ -138,22 +142,25 @@ export default function Panel({ session }) {
               refreshKey={bookings}
               reload={load}
               openClient={openClient}
+              openBooking={setBookingId}
               onNew={(at) => { setNewAt(at); setNewFor(null); window.scrollTo(0, 0) }}
-              listView={<BookingsList salon={salon} bookings={bookings} mode="agenda" reload={load} openClient={openClient} />}
+              listView={<BookingsList salon={salon} bookings={bookings} mode="agenda" reload={load} openClient={openClient} openBooking={setBookingId} />}
             />
           </>
         )
       )}
-      {tab === 'pending' && <BookingsList salon={salon} bookings={bookings} mode={tab} reload={load} openClient={openClient} />}
+      {tab === 'pending' && <BookingsList salon={salon} bookings={bookings} mode={tab} reload={load} openClient={openClient} openBooking={setBookingId} />}
       {tab === 'clients' && (clientId
         ? <ClientSheet salon={salon} clientId={clientId} clients={clients} reload={load} onClose={() => setClientId(null)} onNewBooking={newBooking} />
         : <ClientsTab salon={salon} clients={clients} reload={load} openClient={openClient} />)}
-      {tab === 'revenue' && <RevenueTab salon={salon} services={services} />}
+      {tab === 'revenue' && <RevenueTab salon={salon} services={services} openBooking={setBookingId} />}
+      {tab === 'products' && <ProductsTab salon={salon} clients={clients} />}
       {tab === 'messages' && <MessagesTab salon={salon} openClient={openClient} />}
       {tab === 'services' && <Services salon={salon} services={services} reload={load} />}
       {tab === 'hours' && <Hours salon={salon} hours={hours} reload={load} />}
       {tab === 'blocks' && <Blocks salon={salon} blocks={blocks} reload={load} />}
       {tab === 'settings' && <Settings key={salon.calendar_token + salon.name} salon={salon} reload={load} />}
+      {bookingId && <BookingSheet salon={salon} bookingId={bookingId} services={services} reload={load} openClient={openClient} onClose={() => setBookingId(null)} />}
     </div>
   )
 }

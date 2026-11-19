@@ -95,7 +95,7 @@ function layout(items) {
   return out
 }
 
-export function CalendarView({ salon, hours, refreshKey, reload, openClient, onNew, listView }) {
+export function CalendarView({ salon, hours, refreshKey, reload, openClient, openBooking, onNew, listView }) {
   const [view, setView] = useState(readView)
   const [cursor, setCursorState] = useState(() => lastCursor ?? startOfDay(new Date()))
   const setCursor = (d) => { lastCursor = d; setCursorState(d) }
@@ -127,7 +127,6 @@ export function CalendarView({ salon, hours, refreshKey, reload, openClient, onN
   const loading = data.key !== key
   const bookings = loading ? [] : data.bookings
   const blocks = loading ? [] : data.blocks
-  const sel = selected && bookings.find((b) => b.id === selected)
 
   function pick(v) { setView(v); saveView(v); setSelected(null) }
 
@@ -169,22 +168,16 @@ export function CalendarView({ salon, hours, refreshKey, reload, openClient, onN
       {view === 'list' && listView}
       {view === 'day' && (
         <TimeGrid days={[startOfDay(cursor)]} hours={hours} bookings={bookings} blocks={blocks} now={now} selected={selected}
-          onSelect={setSelected} onNew={onNew} onMove={onMove} pxPerHour={72} />
+          onSelect={(id) => id && openBooking(id)} onNew={onNew} onMove={onMove} pxPerHour={72} />
       )}
       {view === 'week' && (
         <TimeGrid days={Array.from({ length: 7 }, (_, i) => addDays(from, i))} hours={hours} bookings={bookings} blocks={blocks} now={now}
-          selected={selected} onSelect={setSelected} onNew={onNew} onMove={onMove} onDay={openDay} pxPerHour={52} compact />
+          selected={selected} onSelect={(id) => id && openBooking(id)} onNew={onNew} onMove={onMove} onDay={openDay} pxPerHour={52} compact />
       )}
       {view === 'month' && (
         <MonthGrid from={from} to={to} cursor={cursor} hours={hours} bookings={bookings} blocks={blocks} now={now} onDay={openDay} />
       )}
       {view === 'day' && !loading && bookings.length === 0 && <p className="empty">Sem marcações neste dia.</p>}
-      {sel && (
-        <div className="cal-detail">
-          <BookingsList salon={salon} bookings={[sel]} items={[sel]} mode={sel.status === 'pending' ? 'pending' : 'agenda'} reload={reload} openClient={openClient} />
-          <button className="link small" onClick={() => setSelected(null)}>Fechar</button>
-        </div>
-      )}
     </div>
   )
 }

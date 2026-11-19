@@ -53,3 +53,31 @@ input[type=search] { width: 100% }
 .rev-row { display: flex; gap: 10px; align-items: baseline; padding: 6px 0; border-top: 1px solid var(--line) }
 .rev-row:first-of-type { border-top: 0 }
 .ok-text{color:#2e7d4f;font-weight:600}
+
+/* pop-up da marcação */
+body.no-scroll { overflow: hidden }
+.modal-backdrop { position: fixed; inset: 0; z-index: 100; background: rgba(40, 25, 15, .45); display: flex; align-items: flex-end; justify-content: center; animation: fade .15s ease }
+.modal { position: relative; background: var(--card); width: 100%; max-width: 560px; max-height: 92vh; overflow-y: auto; border-radius: 20px 20px 0 0; padding: 22px 18px calc(22px + env(safe-area-inset-bottom)); box-shadow: 0 -8px 30px rgba(0,0,0,.18); animation: up .2s ease }
+@media (min-width: 700px) { .modal-backdrop { align-items: center } .modal { border-radius: 20px; padding: 26px } }
+.modal-x { position: absolute; top: 10px; right: 12px; border: 0; background: var(--bg); width: 34px; height: 34px; border-radius: 50%; font-size: 1.3rem; line-height: 1; cursor: pointer; color: inherit }
+.modal-title { margin: 8px 40px 2px 0; font-size: 1.35rem }
+.modal-title .link { font-size: inherit; font-weight: 700; padding: 0; text-align: left }
+.modal-when { margin: 0 } .modal-when::first-letter { text-transform: uppercase }
+.sheet-lines { border: 1px solid var(--line); border-radius: 12px; padding: 4px 12px }
+.rev-row.total { border-top: 2px solid var(--line); font-weight: 600 }
+.svc-edit { display: grid; grid-template-columns: 1fr 70px 80px auto; gap: 6px; align-items: end }
+.svc-edit select { min-width: 0 }
+.svc-edit .mini { font-size: .75rem; gap: 2px }
+.svc-edit .mini input { padding: 8px 6px }
+@keyframes fade { from { opacity: 0 } }
+@keyframes up { from { transform: translateY(30px); opacity: .5 } }
+.clickable { cursor: pointer }
+.booking-row.clickable:hover { border-color: color-mix(in srgb, var(--brand) 45%, var(--line)) }
+.rev-row.clickable:hover { background: var(--bg) }
+.row-between { display: flex; justify-content: space-between; align-items: center; gap: 10px }
+.row-between h3 { margin: 0 }
+.expense-form { border: 1px dashed var(--line); border-radius: 12px; padding: 12px }
+h4.small { margin: 8px 0 0 }
+.exp-row { border-top: 1px solid var(--line); padding: 8px 0 }
+.exp-main { display: flex; gap: 10px; align-items: baseline }
+.exp-actions { display: flex; gap: 14px; margin-top: 2px }

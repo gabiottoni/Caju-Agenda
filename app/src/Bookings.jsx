@@ -1,13 +1,13 @@
 import { useMemo, useState } from 'react'
 import { sb, notify, errMsg, sameDay, fDay, fShort, fTime, googleCalUrl, waLink, bookingLabel, isoDate, fDur, fMoney, mapsLink } from './lib.js'
 
-function reminderText(b, salon) {
+export function reminderText(b, salon) {
   return `Olá ${b.client_name.split(' ')[0]}! Lembrete da sua marcação de ${bookingLabel(b)} no ${salon.name}: ${fDay(b.starts_at)} às ${fTime(b.starts_at)}. Até já! 🌿`
 }
 const manageUrl = (b) => `${location.href.split('#')[0]}#/m/${b.manage_token}`
 
 // firstVisit: inclui o link do Google Maps para quem vem pela primeira vez
-function confirmText(b, salon, firstVisit = false) {
+export function confirmText(b, salon, firstVisit = false) {
   const maps = firstVisit && mapsLink(salon)
   return [
     `Olá ${b.client_name.split(' ')[0]}! A sua marcação de ${bookingLabel(b)} no ${salon.name} está confirmada para ${fDay(b.starts_at)} às ${fTime(b.starts_at)} 🌿`,
@@ -15,7 +15,7 @@ function confirmText(b, salon, firstVisit = false) {
     `Ver, remarcar ou pôr na sua agenda: ${manageUrl(b)}`,
   ].filter(Boolean).join('\n\n')
 }
-function movedText(b, salon, start) {
+export function movedText(b, salon, start) {
   return `Olá ${b.client_name.split(' ')[0]}! A sua marcação de ${bookingLabel(b)} no ${salon.name} passou para ${fDay(start)} às ${fTime(start)}. Qualquer dúvida é só dizer 🌿\n\nVer ou pôr na sua agenda: ${manageUrl(b)}`
 }
 
@@ -71,7 +71,7 @@ function MoveForm({ b, onDone, onCancel }) {
   )
 }
 
-export function BookingsList({ salon, bookings, items, mode, reload, openClient }) {
+export function BookingsList({ salon, bookings, items, mode, reload, openClient, openBooking }) {
   const [busyId, setBusyId] = useState('')
   const [error, setError] = useState('')
   const [confirmCancel, setConfirmCancel] = useState('')
@@ -145,13 +145,16 @@ export function BookingsList({ salon, bookings, items, mode, reload, openClient 
           </h3>
           <div className="stack tight">
             {g.items.map((b) => (
-              <article key={b.id} className={`card booking-row ${b.status}`}>
+              <article key={b.id} className={`card booking-row ${b.status} ${openBooking ? 'clickable' : ''}`}
+                role={openBooking ? 'button' : undefined} tabIndex={openBooking ? 0 : undefined}
+                onClick={(e) => { if (openBooking && !e.target.closest('button, a, input, select, textarea')) openBooking(b.id) }}
+                onKeyDown={(e) => { if (openBooking && e.key === 'Enter' && e.target === e.currentTarget) openBooking(b.id) }}>
                 <div className="time-col">
                   <strong>{fTime(b.starts_at)}</strong>
                   <span className="muted small">{fTime(b.ends_at)}</span>
                 </div>
                 <div className="info-col">
-                  {b.client_id ? (
+                  {b.client_id && !openBooking ? (
                     <button className="link name-link" onClick={() => openClient(b.client_id)}><strong>{b.client_name}</strong></button>
                   ) : (
                     <strong>{b.client_name}</strong>

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { sb, addDays, startOfDay, fDay, fTime, fMoney, bookingServices, bookingLabel } from './lib.js'
+import { ExpensesSection, expensesIn } from './Expenses.jsx'
 
 const PERIODS = [
   ['day', 'Dia'],
@@ -32,10 +33,13 @@ function title(period, cursor) {
 }
 const prevLabel = { day: 'dia anterior', week: 'semana anterior', month: 'mês anterior' }
 
-export function RevenueTab({ salon, services }) {
+export function RevenueTab({ salon, services, openBooking }) {
   const [period, setPeriod] = useState(() => { try { return localStorage.getItem('caju.revPeriod') || 'month' } catch { return 'month' } })
   const [cursor, setCursor] = useState(() => startOfDay(new Date()))
   const [rows, setRows] = useState(null)
+  const [expenses, setExpenses] = useState(null)
+  const [psales, setPsales] = useState([])
+  const [tick, setTick] = useState(0)
   const [cur0, cur1] = useMemo(() => range(period, cursor), [period, cursor])
   const [prev0] = useMemo(() => range(period, shift(period, cursor, -1)), [period, cursor])
 
@@ -52,10 +56,14 @@ export function RevenueTab({ salon, services }) {
         out.push(...(data ?? []))
         if (!data || data.length < 1000) break
       }
-      if (alive) setRows(out)
+      const [ex, ps] = await Promise.all([
+        sb.from('expenses').select('*').eq('salon_id', salon.id).order('spent_on', { ascending: false }),
+        sb.from('product_sales').select('qty, unit_price_cents, sold_at').eq('salon_id', salon.id).gte('sold_at', prev0.toISOString()).lt('sold_at', cur1.toISOString()),
+      ])
+      if (alive) { setRows(out); setExpenses(ex.data ?? []); setPsales(ps.data ?? []) }
     })()
     return () => { alive = false }
-  }, [salon.id, prev0, cur1])
+  }, [salon.id, prev0, cur1, tick])
 
   const byId = useMemo(() => new Map(services.map((s) => [s.id, s])), [services])
   // valor de uma marcação: preço guardado em cada serviço, ou o preço atual do serviço
@@ -80,12 +88,17 @@ export function RevenueTab({ salon, services }) {
   const pending = inCur.filter((b) => b.status === 'pending' && new Date(b.starts_at).getTime() > now)
   const prevDone = inPrev.filter((b) => b.status === 'confirmed' && new Date(b.starts_at).getTime() <= now)
   const sum = (list) => list.reduce((a, b) => a + value(b).total, 0)
-  const realizado = sum(done)
+  const prodSum = (a, z) => psales.filter((x) => new Date(x.sold_at) >= a && new Date(x.sold_at) < z && new Date(x.sold_at).getTime() <= now).reduce((t, x) => t + x.qty * x.unit_price_cents, 0)
+  const produtos = prodSum(cur0, cur1)
+  const servicos = sum(done)
+  const realizado = servicos + produtos
   const previsto = sum(future)
   const porAprovar = sum(pending)
-  const anterior = sum(prevDone)
+  const anterior = sum(prevDone) + prodSum(prev0, cur0)
+  const gastos = expensesIn(expenses ?? [], cur0, cur1)
+  const lucro = realizado - gastos.total
   const semPreco = [...done, ...future].filter((b) => value(b).missing).length
-  const ticket = done.length ? realizado / done.length : 0
+  const ticket = done.length ? servicos / done.length : 0
   const diff = anterior ? Math.round(((realizado - anterior) / anterior) * 100) : null
 
   // barras por dia (semana / mês)
@@ -137,9 +150,19 @@ export function RevenueTab({ salon, services }) {
           <span className="muted small">Faturado</span>
           <strong>{fMoney(realizado)}</strong>
           <span className="small">
-            {done.length} atendimento{done.length === 1 ? '' : 's'}
+            {done.length} atendimento{done.length === 1 ? '' : 's'}{produtos > 0 && ` + ${fMoney(produtos)} em produtos`}
             {diff !== null && <span className={diff >= 0 ? 'up' : 'down'}> · {diff >= 0 ? '▲' : '▼'} {Math.abs(diff)}% vs {prevLabel[period]}</span>}
           </span>
+        </div>
+        <div className="card">
+          <span className="muted small">Gastos</span>
+          <strong>{fMoney(gastos.total)}</strong>
+          <span className="small muted">fixos {fMoney(gastos.fixed)} · variáveis {fMoney(gastos.variable)}</span>
+        </div>
+        <div className={`card ${lucro >= 0 ? '' : 'neg'}`}>
+          <span className="muted small">Lucro</span>
+          <strong className={lucro >= 0 ? 'up' : 'down'}>{fMoney(lucro)}</strong>
+          <span className="small muted">previsto: {fMoney(realizado + previsto - gastos.total)}</span>
         </div>
         <div className="card">
           <span className="muted small">Ainda por fazer</span>
@@ -183,7 +206,7 @@ export function RevenueTab({ salon, services }) {
           {[...done, ...future].map((b) => {
             const v = value(b)
             return (
-              <div key={b.id} className="rev-row">
+              <div key={b.id} className={`rev-row ${openBooking ? 'clickable' : ''}`} onClick={() => openBooking?.(b.id)}>
                 <span className="hist-date">{fTime(b.starts_at)}</span>
                 <span className="grow">{b.client_name} <span className="muted small">· {bookingLabel(b)}</span></span>
                 <strong>{v.missing && !v.total ? '—' : fMoney(v.total)}</strong>
@@ -204,8 +227,9 @@ export function RevenueTab({ salon, services }) {
           ))}
         </section>
       )}
+      <ExpensesSection salon={salon} expenses={expenses ?? []} from={cur0} to={cur1} period={period} reload={() => setTick((t) => t + 1)} />
       {semPreco > 0 && <p className="muted small">{semPreco} marcaç{semPreco === 1 ? 'ão' : 'ões'} deste período têm serviços sem preço (ex.: serviços antigos importados da Noona) e contam como 0 €.</p>}
-      <p className="muted small">Valores pelos preços dos serviços; não inclui descontos nem gorjetas.</p>
+      <p className="muted small">Valores pelos preços de cada marcação (pode ajustá-los ao editar a marcação); não inclui gorjetas. Gastos fixos contam proporcionalmente aos dias do período.</p>
     </div>
   )
 }

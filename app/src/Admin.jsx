@@ -265,7 +265,7 @@ export function Settings({ salon, reload }) {
   const [f, setF] = useState({
     name: salon.name, phone: salon.phone ?? '', address: salon.address ?? '', notify_email: salon.notify_email ?? '',
     wa_reminders_enabled: salon.wa_reminders_enabled, wa_reminder_hours: salon.wa_reminder_hours, reminder_channel: salon.reminder_channel ?? 'whatsapp',
-    maps_url: salon.maps_url ?? '', push_upcoming: salon.push_upcoming, push_upcoming_min: salon.push_upcoming_min,
+    maps_url: salon.maps_url ?? '', sell_products: salon.sell_products ?? false, push_upcoming: salon.push_upcoming, push_upcoming_min: salon.push_upcoming_min,
     min_notice_hours: salon.min_notice_hours, max_days_ahead: salon.max_days_ahead, cancel_limit_hours: salon.cancel_limit_hours, slot_step_min: salon.slot_step_min,
   })
   const [ok, setOk] = useState('')
@@ -347,6 +347,12 @@ export function Settings({ salon, reload }) {
         {f.reminder_channel === 'whatsapp' && salon.wa_confirm_status !== 'APPROVED' && (
           <p className="muted small">⏳ Os botões “Confirmo presença / Preciso remarcar” no WhatsApp ficam ativos assim que a Meta aprovar a mensagem. Até lá vai o lembrete normal, com o link.</p>
         )}
+        <button className="btn primary">Guardar</button>
+      </form>
+      <form className="card stack" onSubmit={save}>
+        <h3>🛍️ Venda de produtos</h3>
+        <p className="muted small">Para espaços que também vendem produtos (cuidados pós-procedimento, cosmética…). Mostra o separador <b>Produtos</b>, com stock, e as vendas entram na Faturação.</p>
+        <label className="check"><input type="checkbox" checked={f.sell_products} onChange={(e) => setF({ ...f, sell_products: e.target.checked })} /> Vendo produtos</label>
         <button className="btn primary">Guardar</button>
       </form>
       <form className="card stack" onSubmit={save}>

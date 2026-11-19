@@ -98,13 +98,26 @@ async function sendEmail(b: any, s: any, p: Record<string, string>) {
   if (!key) throw new Error("Falta o segredo RESEND_API_KEY para enviar e-mails.");
   const link = `${SITE}/#/m/${b.manage_token}`;
   const e = (t: string) => escapeHtml(t);
-  const html = `<div style="font-family:Arial,sans-serif;max-width:480px;margin:auto;color:#3b2a20">
-<p>Olá ${e(p.nome)}! 🌿</p><p>Lembrete da sua marcação no <b>${e(s.name)}</b>:</p>
-<p style="font-size:16px">📅 <b>${e(p.quando)} às ${e(p.hora)}</b><br>💆 ${e(p.servico)}</p>
-<p><a href="${link}?c=1" style="display:inline-block;background:#b5653a;color:#fff;padding:12px 20px;border-radius:10px;text-decoration:none;font-weight:bold">✅ Confirmo a minha presença</a></p>
-<p><a href="${link}" style="color:#b5653a">Remarcar ou cancelar</a></p>
-${s.address ? `<p style="color:#777;font-size:13px">📍 ${e(s.address)}</p>` : ""}
-<p>Até já!</p></div>`;
+  const btn = (href: string, label: string, primary: boolean) =>
+    `<a href="${href}" style="display:block;${primary ? "background:#b8532a;color:#ffffff;" : "background:#ffffff;color:#b8532a;border:2px solid #b8532a;"}font-size:16px;font-weight:bold;line-height:22px;text-align:center;text-decoration:none;padding:14px 18px;border-radius:12px;">${label}</a>`;
+  const html = `<!DOCTYPE html><html lang="pt"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="light"><title>Lembrete</title></head>
+<body style="margin:0;padding:0;background:#f7efe6;-webkit-text-size-adjust:100%;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f7efe6;"><tr><td align="center" style="padding:24px 12px;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:480px;width:100%;background:#fffaf4;border-radius:16px;">
+<tr><td style="padding:28px 22px 8px;font-family:Arial,Helvetica,sans-serif;color:#3b2a20;">
+<p style="margin:0 0 4px;font-size:13px;letter-spacing:1px;text-transform:uppercase;color:#b8532a;font-weight:bold;">${e(s.name)}</p>
+<p style="margin:0 0 18px;font-size:22px;line-height:28px;font-weight:bold;">Olá ${e(p.nome)}! 🌿</p>
+<p style="margin:0 0 14px;font-size:16px;line-height:24px;">Lembrete da sua marcação:</p>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f7efe6;border-radius:12px;"><tr><td style="padding:14px 16px;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:26px;color:#3b2a20;">
+📅 <b>${e(p.quando)} às ${e(p.hora)}</b><br>💆 ${e(p.servico)}${s.address ? `<br><span style="font-size:14px;color:#6b5a4e;">📍 ${e(s.address)}</span>` : ""}
+</td></tr></table>
+</td></tr>
+<tr><td style="padding:18px 22px 6px;">${btn(`${link}?c=1`, "✅ Confirmo a minha presença", true)}</td></tr>
+<tr><td style="padding:6px 22px 24px;">${btn(link, "Remarcar ou cancelar", false)}</td></tr>
+<tr><td style="padding:0 22px 26px;font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:22px;color:#3b2a20;">Até já!</td></tr>
+</table>
+</td></tr></table></body></html>`;
   const r = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
