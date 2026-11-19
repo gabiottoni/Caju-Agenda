@@ -1,9 +1,10 @@
 import { QrBlock } from './Qr.jsx'
+import { PhotoEditor, deletePhotos } from './Photos.jsx'
 import { useState } from 'react'
 import { PushCard } from './Push.jsx'
 import { sb, errMsg, fDur, fMoney, WEEKDAYS, isoDate, addDays, fDay, fTime, SUPABASE_URL } from './lib.js'
 
-const EMPTY = { name: '', description: '', duration: '30', price: '' }
+const EMPTY = { name: '', description: '', duration: '30', price: '', photos: [] }
 
 export function Services({ salon, services, reload }) {
   const [f, setF] = useState(EMPTY)
@@ -13,7 +14,7 @@ export function Services({ salon, services, reload }) {
 
   function edit(s) {
     setEditId(s.id); setOpen(true)
-    setF({ name: s.name, description: s.description ?? '', duration: String(s.duration_min), price: s.price_cents == null ? '' : String(s.price_cents / 100) })
+    setF({ name: s.name, description: s.description ?? '', duration: String(s.duration_min), price: s.price_cents == null ? '' : String(s.price_cents / 100), photos: s.photos ?? [] })
   }
   async function save(e) {
     e.preventDefault(); setError('')
@@ -23,9 +24,12 @@ export function Services({ salon, services, reload }) {
       description: f.description.trim() || null,
       duration_min: Number(f.duration),
       price_cents: f.price === '' ? null : Math.round(Number(f.price.replace(',', '.')) * 100),
+      photos: f.photos,
     }
+    const before = editId ? services.find((x) => x.id === editId)?.photos ?? [] : []
     const { error } = editId ? await sb.from('services').update(row).eq('id', editId) : await sb.from('services').insert({ ...row, sort: services.length })
     if (error) return setError(errMsg(error))
+    deletePhotos(before.filter((u) => !f.photos.includes(u)))
     setF(EMPTY); setEditId(null); setOpen(false); reload()
   }
   async function toggle(s) { await sb.from('services').update({ active: !s.active }).eq('id', s.id); reload() }
@@ -50,7 +54,8 @@ export function Services({ salon, services, reload }) {
       {services.length === 0 && <p className="empty">Adicione o primeiro serviço para as clientes poderem marcar.</p>}
       {services.map((s, i) => (
         <div key={s.id} className={`card service-admin ${s.active ? '' : 'inactive'}`}>
-          <div>
+          {s.photos?.[0] && <img className="svc-thumb" src={s.photos[0]} alt="" />}
+          <div className="grow">
             <strong>{s.name}</strong>
             <span className="muted small block">{fDur(s.duration_min)} · {fMoney(s.price_cents) || 'sem preço'}{!s.active && ' · oculto'}</span>
           </div>
@@ -67,12 +72,13 @@ export function Services({ salon, services, reload }) {
         <form className="card stack" onSubmit={save}>
           <h3>{editId ? 'Editar serviço' : 'Novo serviço'}</h3>
           {error && <p className="alert">{error}</p>}
-          <label>Nome<input required maxLength={80} placeholder="Laser — axilas" value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} /></label>
+          <label>Nome<input required maxLength={80} placeholder="Sobrancelha à linha" value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} /></label>
           <label>Descrição <span className="muted">(opcional)</span><input maxLength={160} value={f.description} onChange={(e) => setF({ ...f, description: e.target.value })} /></label>
           <div className="two">
             <label>Duração (min)<input required type="number" min={5} max={600} step={5} value={f.duration} onChange={(e) => setF({ ...f, duration: e.target.value })} /></label>
             <label>Preço (€)<input inputMode="decimal" placeholder="25" value={f.price} onChange={(e) => setF({ ...f, price: e.target.value })} /></label>
           </div>
+          <PhotoEditor salonId={salon.id} value={f.photos} onChange={(photos) => setF({ ...f, photos })} />
           <div className="row-actions">
             <button className="btn primary">Guardar</button>
             <button type="button" className="btn ghost" onClick={() => setOpen(false)}>Cancelar</button>

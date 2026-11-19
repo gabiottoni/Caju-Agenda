@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import SlotPicker from './SlotPicker.jsx'
+import { Lightbox } from './Photos.jsx'
 import { sb, notify, errMsg, fDayTime, fMoney, fDur, validEmail, validPhone } from './lib.js'
 
 const STEPS = [
@@ -14,6 +15,7 @@ export default function BookingPage() {
   const [salon, setSalon] = useState(undefined)
   const [step, setStep] = useState('service')
   const [picked, setPicked] = useState([]) // ids pela ordem escolhida
+  const [gallery, setGallery] = useState(null) // serviço com as fotos abertas
   const [time, setTime] = useState(null)
   const [form, setForm] = useState({ name: '', email: '', phone: '', notes: '' })
   const [sending, setSending] = useState(false)
@@ -121,7 +123,9 @@ export default function BookingPage() {
           {salon.services.map((s) => {
             const on = picked.includes(s.id)
             return (
-              <button key={s.id} type="button" className={`card service-card ${on ? 'picked' : ''}`} aria-pressed={on} onClick={() => toggle(s.id)}>
+              <div key={s.id} className="service-wrap">
+              <button type="button" className={`card service-card ${on ? 'picked' : ''} ${s.photos?.length ? 'has-photo' : ''}`} aria-pressed={on} onClick={() => toggle(s.id)}>
+                {s.photos?.length > 0 ? <img className="svc-cover" src={s.photos[0]} alt="" loading="lazy" /> : null}
                 <span className="tick" aria-hidden="true">{on ? '✓' : ''}</span>
                 <span className="grow">
                   <strong>{s.name}</strong>
@@ -132,6 +136,10 @@ export default function BookingPage() {
                   <span className="muted small">{fDur(s.duration_min)}</span>
                 </span>
               </button>
+              {s.photos?.length > 0 && (
+                <button type="button" className="svc-photos-btn" onClick={() => setGallery(s)}>📷 {s.photos.length === 1 ? 'Ver' : `${s.photos.length} fotos`}</button>
+              )}
+              </div>
             )
           })}
           {chosen.length > 0 && (
@@ -203,6 +211,7 @@ export default function BookingPage() {
         </section>
       )}
 
+      {gallery && <Lightbox photos={gallery.photos} title={gallery.name} onClose={() => setGallery(null)} />}
       <footer className="foot">
         {salon.phone && <a href={`tel:${salon.phone}`}>{salon.phone}</a>}
         <span className="legal-links"><a href="privacidade.html">Privacidade</a> · <a href="termos.html">Termos</a></span>

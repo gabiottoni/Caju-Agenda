@@ -95,3 +95,28 @@ h4.small { margin: 8px 0 0 }
 .foot .legal-links { display: block; margin-top: 6px; font-size: .8rem; opacity: .8 }
 .qr-block { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; border-top: 1px solid var(--line); padding-top: 12px }
 .qr-block canvas { width: 120px; height: 120px; border-radius: 8px; background: #fff; padding: 4px }
+
+/* fotos dos serviços */
+.photo-edit { display: flex; gap: 8px; flex-wrap: wrap }
+.photo-tile, .photo-add { position: relative; width: 84px; height: 84px; border-radius: 12px; overflow: hidden; background: var(--bg) }
+.photo-tile img { width: 100%; height: 100%; object-fit: cover; display: block }
+.photo-tools { position: absolute; inset: auto 0 0 0; display: flex; justify-content: center; gap: 4px; padding: 4px; background: linear-gradient(transparent, rgba(0,0,0,.5)) }
+.photo-tools button { border: 0; width: 24px; height: 24px; border-radius: 50%; background: rgba(255,255,255,.92); color: #3b2a20; font-size: 1rem; line-height: 1; cursor: pointer; padding: 0 }
+.photo-add { display: grid; place-items: center; border: 2px dashed var(--line); cursor: pointer; color: var(--brand); font-weight: 600; font-size: .9rem }
+.photo-add.busy { opacity: .6 }
+.svc-thumb { width: 52px; height: 52px; border-radius: 10px; object-fit: cover; flex: none }
+.service-admin { display: flex; align-items: center; gap: 12px; flex-wrap: wrap }
+.service-wrap { position: relative }
+.service-card.has-photo { padding-left: 98px; min-height: 96px }
+.svc-cover { position: absolute; left: 10px; top: 10px; width: 76px; height: calc(100% - 20px); max-height: 120px; object-fit: cover; border-radius: 10px }
+.service-card.has-photo .tick { position: absolute; left: 14px; top: 14px; z-index: 1; background: rgba(255,250,244,.92) }
+.svc-photos-btn { position: absolute; left: 10px; bottom: 10px; width: 76px; border: 0; border-radius: 0 0 10px 10px; background: rgba(40,25,15,.62); color: #fff; font-size: .68rem; padding: 4px 2px; cursor: pointer }
+.lightbox { position: fixed; inset: 0; z-index: 200; background: rgba(15,10,6,.92); display: flex; align-items: center; justify-content: center; flex-direction: column; animation: fade .15s ease }
+.lightbox img { max-width: 94vw; max-height: 78vh; border-radius: 12px; object-fit: contain }
+.lb-x { position: absolute; top: 14px; right: 14px; width: 42px; height: 42px; border-radius: 50%; border: 0; background: rgba(255,255,255,.15); color: #fff; font-size: 1.6rem; cursor: pointer }
+.lb-nav { position: absolute; top: 50%; transform: translateY(-50%); width: 44px; height: 64px; border: 0; background: rgba(255,255,255,.12); color: #fff; font-size: 2rem; cursor: pointer; border-radius: 10px }
+.lb-nav.prev { left: 8px } .lb-nav.next { right: 8px } .lb-nav:disabled { opacity: .2 }
+.lb-dots { display: flex; gap: 6px; margin-top: 14px } .lb-dots span { width: 7px; height: 7px; border-radius: 50%; background: rgba(255,255,255,.35) } .lb-dots .on { background: #fff }
+.lb-title { color: #fff; margin: 10px 0 0; font-weight: 600 }
+.service-card { position: relative }
+.service-card.has-photo.picked .tick { background: var(--brand); color: #fff; border-color: var(--brand) }
