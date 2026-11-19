@@ -81,3 +81,9 @@ h4.small { margin: 8px 0 0 }
 .exp-row { border-top: 1px solid var(--line); padding: 8px 0 }
 .exp-main { display: flex; gap: 10px; align-items: baseline }
 .exp-actions { display: flex; gap: 14px; margin-top: 2px }
+.wa-bubble { background: #dcf8c6; color: #1f2b1c; border-radius: 12px 12px 12px 2px; padding: 10px 12px; margin: 0; white-space: pre-wrap; font-size: .95rem; max-width: 92% }
+.wa-foot { display: block; margin-top: 6px; font-size: .78rem; color: #6a7b66 }
+.progress { height: 6px; background: var(--bg); border-radius: 99px; overflow: hidden }
+.progress span { display: block; height: 100%; background: var(--brand) }
+.pick-list { max-height: 360px; overflow-y: auto }
+.pick-list .hist-row { cursor: pointer; align-items: center }

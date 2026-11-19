@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { sb, fShort, fTime, fDay, bookingLabel } from './lib.js'
+import { CampaignsTab } from './Campaigns.jsx'
 
 const STATUS = {
   sent: ['Enviado ✓', 'ok'],
@@ -8,7 +9,22 @@ const STATUS = {
 }
 
 // Histórico dos lembretes automáticos por WhatsApp + os que estão programados
-export function MessagesTab({ salon, openClient }) {
+export function MessagesTab({ salon, openClient, clients, reload }) {
+  const [sub, setSub] = useState(() => { try { return localStorage.getItem('caju.msgTab') || 'reminders' } catch { return 'reminders' } })
+  const pick = (k) => { setSub(k); try { localStorage.setItem('caju.msgTab', k) } catch { /* */ } }
+  return (
+    <div className="stack">
+      <div className="cal-switch" role="tablist">
+        {[['reminders', 'Lembretes'], ['campaigns', 'Campanhas']].map(([k, l]) => (
+          <button key={k} role="tab" aria-selected={sub === k} className={sub === k ? 'on' : ''} onClick={() => pick(k)}>{l}</button>
+        ))}
+      </div>
+      {sub === 'campaigns' ? <CampaignsTab salon={salon} clients={clients} reload={reload} /> : <Reminders salon={salon} openClient={openClient} />}
+    </div>
+  )
+}
+
+function Reminders({ salon, openClient }) {
   const [sent, setSent] = useState(null)
   const [next, setNext] = useState([])
 

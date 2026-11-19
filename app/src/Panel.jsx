@@ -155,7 +155,7 @@ export default function Panel({ session }) {
         : <ClientsTab salon={salon} clients={clients} reload={load} openClient={openClient} />)}
       {tab === 'revenue' && <RevenueTab salon={salon} services={services} openBooking={setBookingId} />}
       {tab === 'products' && <ProductsTab salon={salon} clients={clients} />}
-      {tab === 'messages' && <MessagesTab salon={salon} openClient={openClient} />}
+      {tab === 'messages' && <MessagesTab salon={salon} openClient={openClient} clients={clients} reload={load} />}
       {tab === 'services' && <Services salon={salon} services={services} reload={load} />}
       {tab === 'hours' && <Hours salon={salon} hours={hours} reload={load} />}
       {tab === 'blocks' && <Blocks salon={salon} blocks={blocks} reload={load} />}
