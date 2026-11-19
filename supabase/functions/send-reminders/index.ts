@@ -94,7 +94,7 @@ function escapeHtml(t: string) {
 }
 
 async function sendEmail(b: any, s: any, p: Record<string, string>) {
-  const key = Deno.env.get("RESEND_API_KEY");
+  const key = Deno.env.get("RESEND_API_KEY") ?? Deno.env.get("RESEND_API_KEY2");
   if (!key) throw new Error("Falta o segredo RESEND_API_KEY para enviar e-mails.");
   const link = `${SITE}/#/m/${b.manage_token}`;
   const e = (t: string) => escapeHtml(t);
@@ -257,6 +257,12 @@ Deno.serve(async (req) => {
         const r = await kapso(`/${s.wa_waba_id}/message_templates?name=${s.wa_template}`).catch((e) => ({ error: String(e.message) }));
         (out as unknown[]).push({ salon: s.slug, result: r });
       }
+    } else if (body.action === "test_email" && body.to) {
+      // e-mail de exemplo (marcação fictícia) para a dona ver como chega
+      const { data: s } = await sb.from("salons").select("*").eq("slug", body.salon ?? "caju-studio").single();
+      const fake = { manage_token: "00000000-0000-0000-0000-000000000000", client_email: body.to };
+      await sendEmail(fake, s, { nome: "Gabi", quando: "amanhã, sexta 20/11", hora: "10:30", servico: "Sobrancelha + Buço" });
+      out = { ok: true, to: body.to };
     } else if (body.action === "test" && body.booking_id) {
       const { data: b } = await sb.from("bookings").select("*").eq("id", body.booking_id).single();
       const { data: s } = await sb.from("salons").select("*").eq("id", b.salon_id).single();
