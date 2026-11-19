@@ -52,3 +52,4 @@ input[type=search] { width: 100% }
 .dot.done { background: var(--brand) } .dot.fut { background: color-mix(in srgb, var(--brand) 35%, white) }
 .rev-row { display: flex; gap: 10px; align-items: baseline; padding: 6px 0; border-top: 1px solid var(--line) }
 .rev-row:first-of-type { border-top: 0 }
+.ok-text{color:#2e7d4f;font-weight:600}

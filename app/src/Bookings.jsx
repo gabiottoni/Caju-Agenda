@@ -164,7 +164,9 @@ export function BookingsList({ salon, bookings, items, mode, reload, openClient 
                   </span>
                   {b.notes && <span className="note">“{b.notes}”</span>}
                   {mode === 'pending' && <span className="muted small">Pedido em {fShort(b.created_at)}</span>}
-                  {salon.wa_phone_number_id && b.client_phone && <ReminderBadge b={b} salon={salon} busy={busyId === b.id} onToggle={() => toggleReminder(b)} />}
+                  {b.client_reply === 'confirmed' && <span className="small rem ok">✅ Cliente confirmou a presença</span>}
+                  {b.client_reply === 'reschedule' && <span className="small rem bad">🔁 Cliente pediu para remarcar — fale com ela ou mude o horário</span>}
+                  {(salon.wa_phone_number_id || salon.reminder_channel === 'email') && (b.client_phone || b.client_email) && <ReminderBadge b={b} salon={salon} busy={busyId === b.id} onToggle={() => toggleReminder(b)} />}
                   <div className="row-actions">
                     {mode === 'pending' ? (
                       <>
@@ -198,7 +200,7 @@ export function BookingsList({ salon, bookings, items, mode, reload, openClient 
 }
 
 function ReminderBadge({ b, salon, busy, onToggle }) {
-  if (b.wa_reminder_status === 'sent') return <span className="small rem ok">📲 Lembrete enviado ✓ {b.reminder_sent_at && fShort(b.reminder_sent_at)} {b.reminder_sent_at && fTime(b.reminder_sent_at)}</span>
+  if (b.wa_reminder_status === 'sent') return <span className="small rem ok">{b.reminder_channel === 'email' ? '✉️' : '📲'} Lembrete enviado ✓ {b.reminder_sent_at && fShort(b.reminder_sent_at)} {b.reminder_sent_at && fTime(b.reminder_sent_at)}</span>
   if (b.wa_reminder_status === 'failed') return <span className="small rem bad" title={b.wa_reminder_error ?? ''}>📲 Lembrete falhou — {b.wa_reminder_error}</span>
   if (b.wa_reminder_status === 'skipped') return <span className="small rem muted">📲 Lembrete não enviado ({b.wa_reminder_error})</span>
   return (

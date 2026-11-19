@@ -49,7 +49,11 @@ Deno.serve(async (req) => {
     salonId = b.salon_id;
     const quando = fmt(b.starts_at);
     const first = String(b.client_name).split(" ")[0];
-    msg = body.event === "cancelled"
+    msg = body.event === "client_confirmed"
+      ? { title: `✅ ${first} confirmou a presença`, body: `${b.service_name} · ${quando}`, tag: `b-${b.id}` }
+      : body.event === "client_reschedule"
+      ? { title: `🔁 ${first} precisa de remarcar`, body: `Marcação de ${quando} · respondeu no WhatsApp`, tag: `b-${b.id}` }
+      : body.event === "cancelled"
       ? { title: `❌ ${first} cancelou`, body: `${b.service_name} · ${quando}`, tag: `b-${b.id}` }
       : body.event === "rescheduled"
       ? { title: `🔁 ${first} pediu para remarcar`, body: `Novo horário: ${quando} · ${b.service_name}`, tag: `b-${b.id}` }

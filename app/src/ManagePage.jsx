@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { useParams, useSearchParams } from 'react-router-dom'
 import SlotPicker from './SlotPicker.jsx'
 import { sb, notify, errMsg, fDayTime, googleCalUrl, bookingLabel, clientIcsUrl, mapsLink } from './lib.js'
 
@@ -12,6 +12,8 @@ const STATUS = {
 
 export default function ManagePage() {
   const { token = '' } = useParams()
+  const [params] = useSearchParams()
+  const autoConfirm = params.get('c') === '1'
   const [bk, setBk] = useState(undefined)
   const [salon, setSalon] = useState(null)
   const [mode, setMode] = useState('view')
@@ -30,6 +32,21 @@ export default function ManagePage() {
   }, [token])
 
   useEffect(() => { load() }, [load])
+
+  async function confirmPresence() {
+    setBusy(true); setError('')
+    const { error } = await sb.rpc('confirm_booking_by_token', { p_token: token })
+    setBusy(false)
+    if (error) return setError(errMsg(error))
+    setNotice('Presença confirmada ✅ Obrigada, até já!'); load()
+  }
+
+  // link "Confirmo a minha presença" do e-mail de lembrete
+  const canConfirm = bk && bk.status === 'confirmed' && !bk.client_confirmed_at && new Date(bk.starts_at) > new Date()
+  useEffect(() => {
+    if (autoConfirm && canConfirm && !busy) confirmPresence()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoConfirm, canConfirm])
 
   if (bk === undefined) return <div className="page center"><p className="muted">A carregar…</p></div>
   if (bk === null)
@@ -77,6 +94,7 @@ export default function ManagePage() {
         <span className={`badge ${cls}`}>{label}</span>
         <strong>{name}</strong>
         <span>{fDayTime(bk.starts_at)}</span>
+        {bk.client_confirmed_at && <span className="small ok-text">✅ Presença confirmada por si</span>}
         {bk.salon_address && (
           <a className="small" target="_blank" rel="noreferrer" href={mapsLink({ address: bk.salon_address, maps_url: salon?.maps_url })}>📍 {bk.salon_address}</a>
         )}
@@ -84,6 +102,9 @@ export default function ManagePage() {
 
       {mode === 'view' && active && (
         <div className="stack">
+          {canConfirm && (
+            <button className="btn primary big" disabled={busy} onClick={confirmPresence}>{busy ? 'A confirmar…' : '✅ Confirmo a minha presença'}</button>
+          )}
           <div className="cal-add">
             <span className="small muted">Pôr na minha agenda com lembrete:</span>
             <div className="row-actions">

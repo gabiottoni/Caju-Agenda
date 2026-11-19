@@ -8,6 +8,11 @@
 //   POST {"action":"setup"}      -> cria o modelo "lembrete_marcacao" na Meta (uma vez)
 //   POST {"action":"status"}     -> estado do modelo (APPROVED / PENDING / REJECTED)
 //   POST {"action":"test","booking_id":"…"} -> envia já o lembrete dessa marcação
+//   POST {"action":"setup_confirm"} -> cria o modelo "confirmar_marcacao" (com botões Confirmo / Preciso remarcar)
+//
+// Canal: salons.reminder_channel = 'whatsapp' (por defeito; se a cliente não tiver telemóvel válido
+// e tiver e-mail, vai por e-mail) ou 'email'. O e-mail precisa do segredo RESEND_API_KEY.
+// Enquanto o modelo com botões não estiver APPROVED, usa o modelo antigo (wa_template).
 //
 // Segredo necessário: KAPSO_API_KEY. O pedido tem de trazer x-admin-token = app_config.admin_token
 // (tabela só acessível ao servidor; o pg_cron lê o mesmo valor).
@@ -29,6 +34,15 @@ const TEMPLATE_TEXT =
   "💆 {{servico}}\n\n" +
   "Para ver, remarcar ou cancelar: {{link}}\n\n" +
   "Até já!";
+
+const CONFIRM_TEMPLATE = "confirmar_marcacao";
+const CONFIRM_TEXT =
+  "Olá {{nome}}! 🌿 Lembrete da sua marcação no {{salao}}:\n" +
+  "📅 {{quando}} às {{hora}}\n" +
+  "💆 {{servico}}\n\n" +
+  "Pode confirmar a sua presença carregando no botão abaixo. " +
+  "Para ver os detalhes, remarcar ou cancelar: {{link}}";
+const CONFIRM_BUTTONS = ["Confirmo presença", "Preciso remarcar"];
 
 const EXAMPLES: Record<string, string> = {
   nome: "Ana",
@@ -74,10 +88,43 @@ function waNumber(phone: string | null) {
 
 const firstName = (s: string) => (s.trim().split(/\s+/)[0] || s).slice(0, 40);
 
+function escapeHtml(t: string) {
+  return t.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]!));
+}
+
+async function sendEmail(b: any, s: any, p: Record<string, string>) {
+  const key = Deno.env.get("RESEND_API_KEY");
+  if (!key) throw new Error("Falta o segredo RESEND_API_KEY para enviar e-mails.");
+  const link = `${SITE}/#/m/${b.manage_token}`;
+  const e = (t: string) => escapeHtml(t);
+  const html = `<div style="font-family:Arial,sans-serif;max-width:480px;margin:auto;color:#3b2a20">
+<p>Olá ${e(p.nome)}! 🌿</p><p>Lembrete da sua marcação no <b>${e(s.name)}</b>:</p>
+<p style="font-size:16px">📅 <b>${e(p.quando)} às ${e(p.hora)}</b><br>💆 ${e(p.servico)}</p>
+<p><a href="${link}?c=1" style="display:inline-block;background:#b5653a;color:#fff;padding:12px 20px;border-radius:10px;text-decoration:none;font-weight:bold">✅ Confirmo a minha presença</a></p>
+<p><a href="${link}" style="color:#b5653a">Remarcar ou cancelar</a></p>
+${s.address ? `<p style="color:#777;font-size:13px">📍 ${e(s.address)}</p>` : ""}
+<p>Até já!</p></div>`;
+  const r = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      from: `${s.name} <cajustudio@agendacaju.com>`,
+      to: [b.client_email],
+      reply_to: s.notify_email || undefined,
+      subject: `Lembrete: ${p.quando} às ${p.hora} — confirme a sua presença`,
+      html,
+    }),
+  });
+  if (!r.ok) throw new Error(`Resend ${r.status}: ${(await r.text()).slice(0, 200)}`);
+}
+
 async function sendOne(b: any, s: any, now: Date) {
   const to = waNumber(b.client_phone);
-  if (!to) {
-    await sb.from("bookings").update({ wa_reminder_status: "skipped", wa_reminder_error: "Sem telemóvel válido", reminder_sent_at: now.toISOString() }).eq("id", b.id);
+  const email = (b.client_email ?? "").includes("@") ? b.client_email : null;
+  const channel = s.reminder_channel === "email" ? (email ? "email" : to ? "whatsapp" : null)
+    : to ? "whatsapp" : email ? "email" : null;
+  if (!channel) {
+    await sb.from("bookings").update({ wa_reminder_status: "skipped", wa_reminder_error: "Sem telemóvel nem e-mail válido", reminder_sent_at: now.toISOString() }).eq("id", b.id);
     return { id: b.id, status: "skipped" };
   }
   const start = new Date(b.starts_at);
@@ -90,39 +137,59 @@ async function sendOne(b: any, s: any, now: Date) {
     link: `${SITE}/#/m/${b.manage_token}`,
   };
   try {
-    await kapso(`/${s.wa_phone_number_id}/messages`, {
-      method: "POST",
-      body: JSON.stringify({
-        messaging_product: "whatsapp",
-        to,
-        type: "template",
-        template: {
-          name: s.wa_template,
-          language: { code: LANG },
-          components: [{
-            type: "body",
-            parameters: Object.entries(params).map(([k, v]) => ({ type: "text", parameter_name: k, text: v })),
-          }],
-        },
-      }),
-    });
-    await sb.from("bookings").update({ wa_reminder_status: "sent", wa_reminder_error: null, reminder_sent_at: now.toISOString() }).eq("id", b.id);
-    return { id: b.id, status: "sent" };
+    if (channel === "email") {
+      await sendEmail(b, s, params);
+    } else {
+      const withButtons = s.wa_confirm_template && s.wa_confirm_status === "APPROVED";
+      const components: unknown[] = [{
+        type: "body",
+        parameters: Object.entries(params).map(([k, v]) => ({ type: "text", parameter_name: k, text: v })),
+      }];
+      if (withButtons) {
+        ["confirm", "resched"].forEach((kind, i) =>
+          components.push({ type: "button", sub_type: "quick_reply", index: String(i), parameters: [{ type: "payload", payload: `${kind}:${b.id}` }] }));
+      }
+      await kapso(`/${s.wa_phone_number_id}/messages`, {
+        method: "POST",
+        body: JSON.stringify({
+          messaging_product: "whatsapp",
+          to,
+          type: "template",
+          template: { name: withButtons ? s.wa_confirm_template : s.wa_template, language: { code: LANG }, components },
+        }),
+      });
+    }
+    await sb.from("bookings").update({ wa_reminder_status: "sent", wa_reminder_error: null, reminder_channel: channel, reminder_sent_at: now.toISOString() }).eq("id", b.id);
+    return { id: b.id, status: "sent", channel };
   } catch (e) {
     const msg = String((e as Error).message).slice(0, 300);
-    await sb.from("bookings").update({ wa_reminder_status: "failed", wa_reminder_error: msg, reminder_sent_at: now.toISOString() }).eq("id", b.id);
-    return { id: b.id, status: "failed", error: msg };
+    await sb.from("bookings").update({ wa_reminder_status: "failed", wa_reminder_error: msg, reminder_channel: channel, reminder_sent_at: now.toISOString() }).eq("id", b.id);
+    return { id: b.id, status: "failed", channel, error: msg };
   }
+}
+
+// quando o modelo com botões fica aprovado, passa a ser usado automaticamente
+async function refreshConfirmStatus(s: any) {
+  if (!s.wa_confirm_template || s.wa_confirm_status === "APPROVED" || !s.wa_waba_id) return s;
+  const r = await kapso(`/${s.wa_waba_id}/message_templates?name=${s.wa_confirm_template}`).catch(() => null);
+  const st = r?.data?.find((t: any) => t.name === s.wa_confirm_template)?.status;
+  if (st && st !== s.wa_confirm_status) {
+    await sb.from("salons").update({ wa_confirm_status: st }).eq("id", s.id);
+    s.wa_confirm_status = st;
+  }
+  return s;
 }
 
 async function run() {
   const now = new Date();
   const hour = localHour(now);
-  const { data: salons, error } = await sb.from("salons").select("*").eq("wa_reminders_enabled", true).not("wa_phone_number_id", "is", null);
+  const { data: salons, error } = await sb.from("salons").select("*").eq("wa_reminders_enabled", true);
   if (error) throw error;
   const results: unknown[] = [];
   if (hour < SEND_FROM_HOUR || hour >= SEND_TO_HOUR) return { skipped: "fora do horário de envio", hour };
-  for (const s of salons ?? []) {
+  for (let s of salons ?? []) {
+    if (!s.wa_phone_number_id && s.reminder_channel !== "email") continue;
+    s = await refreshConfirmStatus(s);
     const until = new Date(now.getTime() + s.wa_reminder_hours * 36e5).toISOString();
     const from = new Date(now.getTime() + 60 * 6e4).toISOString(); // pelo menos 1 h antes
     const { data: list } = await sb.from("bookings").select("*")
@@ -162,6 +229,25 @@ Deno.serve(async (req) => {
             }],
           }),
         }).catch((e) => ({ error: String(e.message) }));
+        (out as unknown[]).push({ salon: s.slug, result: r });
+      }
+    } else if (body.action === "setup_confirm") {
+      out = [];
+      for (const s of await salonsWithWaba()) {
+        const r = await kapso(`/${s.wa_waba_id}/message_templates`, {
+          method: "POST",
+          body: JSON.stringify({
+            name: CONFIRM_TEMPLATE,
+            category: "UTILITY",
+            language: LANG,
+            parameter_format: "NAMED",
+            components: [
+              { type: "BODY", text: CONFIRM_TEXT, example: { body_text_named_params: Object.entries(EXAMPLES).map(([param_name, example]) => ({ param_name, example })) } },
+              { type: "BUTTONS", buttons: CONFIRM_BUTTONS.map((text) => ({ type: "QUICK_REPLY", text })) },
+            ],
+          }),
+        }).catch((e) => ({ error: String(e.message) }));
+        if (!(r as any).error) await sb.from("salons").update({ wa_confirm_template: CONFIRM_TEMPLATE, wa_confirm_status: (r as any).status ?? "PENDING" }).eq("id", s.id);
         (out as unknown[]).push({ salon: s.slug, result: r });
       }
     } else if (body.action === "status") {
