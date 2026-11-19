@@ -1,3 +1,4 @@
+import { QrBlock } from './Qr.jsx'
 import { useState } from 'react'
 import { PushCard } from './Push.jsx'
 import { sb, errMsg, fDur, fMoney, WEEKDAYS, isoDate, addDays, fDay, fTime, SUPABASE_URL } from './lib.js'
@@ -309,6 +310,7 @@ export function Settings({ salon, reload }) {
           <a className="btn small" href={`#/s/${salon.slug}`}>Ver como cliente</a>
           {'share' in navigator && <button className="btn small ghost" onClick={() => navigator.share({ title: `Marcar — ${salon.name}`, url: link }).catch(() => {})}>Partilhar</button>}
         </div>
+        <QrBlock salon={salon} link={`https://agendacaju.com/#/s/${salon.slug}`} />
       </section>
       <section className="card stack">
         <h3>Receber as marcações no seu calendário</h3>

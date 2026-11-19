@@ -90,3 +90,8 @@ h4.small { margin: 8px 0 0 }
 .map-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px }
 .map-grid label { gap: 4px }
 .import-sum { display: flex; flex-direction: column; gap: 4px; background: var(--bg); border-radius: 12px; padding: 10px 12px }
+.legal-note { text-align: center; margin: 8px 0 0 }
+.legal-note a, .legal-links a { color: inherit }
+.foot .legal-links { display: block; margin-top: 6px; font-size: .8rem; opacity: .8 }
+.qr-block { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; border-top: 1px solid var(--line); padding-top: 12px }
+.qr-block canvas { width: 120px; height: 120px; border-radius: 8px; background: #fff; padding: 4px }

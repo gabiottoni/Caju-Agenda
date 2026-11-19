@@ -179,6 +179,7 @@ export default function BookingPage() {
             <textarea maxLength={500} rows={2} value={form.notes} onChange={set('notes')} />
           </label>
           <button className="btn primary big" disabled={sending}>{sending ? 'A enviar…' : 'Pedir marcação'}</button>
+          <p className="muted small legal-note">Os seus dados servem só para gerir esta marcação e enviar-lhe o lembrete. <a href="privacidade.html" target="_blank" rel="noreferrer">Política de privacidade</a></p>
           <p className="muted small center-text">O horário fica reservado e {salon.name} confirma consigo.</p>
         </form>
       )}
@@ -202,7 +203,10 @@ export default function BookingPage() {
         </section>
       )}
 
-      <footer className="foot">{salon.phone && <a href={`tel:${salon.phone}`}>{salon.phone}</a>}</footer>
+      <footer className="foot">
+        {salon.phone && <a href={`tel:${salon.phone}`}>{salon.phone}</a>}
+        <span className="legal-links"><a href="privacidade.html">Privacidade</a> · <a href="termos.html">Termos</a></span>
+      </footer>
     </div>
   )
 }

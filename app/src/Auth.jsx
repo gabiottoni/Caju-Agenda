@@ -49,6 +49,7 @@ export function Login() {
           <input type="password" required minLength={6} autoComplete={mode === 'in' ? 'current-password' : 'new-password'} value={pass} onChange={(e) => setPass(e.target.value)} />
         </label>
         <button className="btn primary big" disabled={busy}>{busy ? 'Aguarde…' : mode === 'in' ? 'Entrar' : 'Criar conta'}</button>
+        {mode === 'up' && <p className="muted small legal-note">Ao criar conta aceita os <a href="termos.html" target="_blank" rel="noreferrer">Termos de Uso</a> e a <a href="privacidade.html" target="_blank" rel="noreferrer">Política de Privacidade</a>.</p>}
         {mode === 'in' && <button type="button" className="link" onClick={forgot}>Esqueci a palavra-passe</button>}
       </form>
     </div>

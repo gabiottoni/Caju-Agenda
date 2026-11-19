@@ -146,6 +146,7 @@ export default function ManagePage() {
           )}
         </div>
       )}
+      <p className="muted small legal-note"><a href="privacidade.html">Privacidade</a> · <a href="termos.html">Termos</a></p>
     </div>
   )
 }
