@@ -41,7 +41,8 @@ const CONFIRM_TEXT =
   "📅 {{quando}} às {{hora}}\n" +
   "💆 {{servico}}\n\n" +
   "Pode confirmar a sua presença carregando no botão abaixo. " +
-  "Para ver os detalhes, remarcar ou cancelar: {{link}}";
+  "Para ver os detalhes, remarcar ou cancelar: {{link}}\n\n" +
+  "Até já!";
 const CONFIRM_BUTTONS = ["Confirmo presença", "Preciso remarcar"];
 
 const EXAMPLES: Record<string, string> = {
@@ -61,7 +62,7 @@ async function kapso(path: string, init: RequestInit = {}) {
     headers: { "X-API-Key": key, "Content-Type": "application/json", ...(init.headers ?? {}) },
   });
   const body = await r.json().catch(() => ({}));
-  if (!r.ok) throw new Error(body?.error?.message ?? body?.message ?? `Kapso ${r.status}`);
+  if (!r.ok) throw new Error([body?.error?.message ?? body?.message ?? `Kapso ${r.status}`, body?.error?.error_user_msg, body?.error?.error_data?.details].filter(Boolean).join(" — "));
   return body;
 }
 
