@@ -243,6 +243,8 @@ export function ClientSheet({ salon, clientId, clients, reload, onClose, onNewBo
             {client.email && <span>✉️ <a href={`mailto:${client.email}`}>{client.email}</a></span>}
             {!client.phone && !client.email && <span className="muted">Sem telemóvel nem e-mail.</span>}
             {client.birthday && <span>🎂 {new Intl.DateTimeFormat('pt-PT', { day: 'numeric', month: 'long' }).format(new Date(client.birthday + 'T12:00'))}</span>}
+            {client.referral_source && <span>🧭 Conheceu por: {client.referral_source}</span>}
+            <span>{client.marketing_consent && !client.wa_opt_out ? `✅ Autorizou mensagens de marketing${client.marketing_consent_at ? ` (${fDate(client.marketing_consent_at)})` : ''}` : '— Sem autorização de marketing'}</span>
           </div>
           {(client.tags ?? []).length > 0 && <span className="tag-line">{client.tags.map((t) => <span key={t} className="tag">{t}</span>)}</span>}
           {client.notes && <p className="note" style={{ margin: 0 }}>{client.notes}</p>}

@@ -120,3 +120,19 @@ h4.small { margin: 8px 0 0 }
 .lb-title { color: #fff; margin: 10px 0 0; font-weight: 600 }
 .service-card { position: relative }
 .service-card.has-photo.picked .tick { background: var(--brand); color: #fff; border-color: var(--brand) }
+
+/* consentimento de marketing na marcação */
+label.check.consent { align-items: flex-start; font-weight: 400; font-size: .88rem; line-height: 1.4 }
+label.check.consent input { width: 20px; height: 20px; flex: 0 0 20px; margin-top: 2px; padding: 0 }
+
+/* banner de cookies (página de marcação) */
+.cookie-banner {
+  position: fixed; left: 12px; right: 12px; bottom: 12px; z-index: 50;
+  max-width: 520px; margin: 0 auto; padding: 14px 16px;
+  background: #fff; border: 1px solid var(--line); border-radius: 14px;
+  box-shadow: 0 8px 30px rgba(0,0,0,.12)
+}
+.cookie-banner p { margin: 0 0 10px }
+.cookie-actions { display: flex; gap: 8px }
+.cookie-actions .btn { flex: 1 }
+.foot .legal-links .link.small { font-size: inherit; padding: 0; text-decoration: underline }

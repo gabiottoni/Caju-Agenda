@@ -274,6 +274,7 @@ export function Settings({ salon, reload }) {
     wa_reminders_enabled: salon.wa_reminders_enabled, wa_reminder_hours: salon.wa_reminder_hours, reminder_channel: salon.reminder_channel ?? 'whatsapp',
     maps_url: salon.maps_url ?? '', sell_products: salon.sell_products ?? false, push_upcoming: salon.push_upcoming, push_upcoming_min: salon.push_upcoming_min,
     min_notice_hours: salon.min_notice_hours, max_days_ahead: salon.max_days_ahead, cancel_limit_hours: salon.cancel_limit_hours, slot_step_min: salon.slot_step_min,
+    google_tag_id: salon.google_tag_id ?? '', google_ads_conversion: salon.google_ads_conversion ?? '',
   })
   const [ok, setOk] = useState('')
   const [error, setError] = useState('')
@@ -283,7 +284,7 @@ export function Settings({ salon, reload }) {
 
   async function save(e) {
     e.preventDefault(); setOk(''); setError('')
-    const { error } = await sb.from('salons').update({ ...f, phone: f.phone || null, address: f.address || null, notify_email: f.notify_email || null, maps_url: f.maps_url.trim() || null }).eq('id', salon.id)
+    const { error } = await sb.from('salons').update({ ...f, phone: f.phone || null, address: f.address || null, notify_email: f.notify_email || null, maps_url: f.maps_url.trim() || null, google_tag_id: f.google_tag_id.trim() || null, google_ads_conversion: f.google_ads_conversion.trim() || null }).eq('id', salon.id)
     if (error) return setError(errMsg(error))
     setOk('Guardado ✓'); reload()
   }
@@ -355,6 +356,19 @@ export function Settings({ salon, reload }) {
         {f.reminder_channel === 'whatsapp' && salon.wa_confirm_status !== 'APPROVED' && (
           <p className="muted small">⏳ Os botões “Confirmo presença / Preciso remarcar” no WhatsApp ficam ativos assim que a Meta aprovar a mensagem. Até lá vai o lembrete normal, com o link.</p>
         )}
+        <button className="btn primary">Guardar</button>
+      </form>
+      <form className="card stack" onSubmit={save}>
+        <h3>📈 Medição de anúncios (Google)</h3>
+        <p className="muted small">Para saber se os anúncios do Google trazem marcações. A página de marcação mostra um aviso de cookies e só ativa a etiqueta se a cliente aceitar. Nunca são enviados nomes, telemóveis ou e-mails.</p>
+        <label>
+          ID da etiqueta Google <span className="muted">(ex.: GTM-XXXXXXX ou AW-123456789)</span>
+          <input value={f.google_tag_id} onChange={(e) => setF({ ...f, google_tag_id: e.target.value })} />
+        </label>
+        <label>
+          Conversão “Marcação concluída” <span className="muted">(opcional, ex.: AW-123456789/AbC-dEf)</span>
+          <input value={f.google_ads_conversion} onChange={(e) => setF({ ...f, google_ads_conversion: e.target.value })} />
+        </label>
         <button className="btn primary">Guardar</button>
       </form>
       <form className="card stack" onSubmit={save}>

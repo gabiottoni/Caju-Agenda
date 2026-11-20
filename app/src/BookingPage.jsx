@@ -3,6 +3,9 @@ import { useParams } from 'react-router-dom'
 import SlotPicker from './SlotPicker.jsx'
 import { Lightbox } from './Photos.jsx'
 import { sb, notify, errMsg, fDayTime, fMoney, fDur, validEmail, validPhone } from './lib.js'
+import { getConsent, setConsent, loadGoogleTag, track, trackConversion } from './tracking.js'
+
+const REFERRALS = ['Google', 'Instagram', 'Facebook', 'Indicação de uma amiga', 'Já sou cliente', 'Outro']
 
 const STEPS = [
   ['service', 'Serviços'],
@@ -17,7 +20,8 @@ export default function BookingPage() {
   const [picked, setPicked] = useState([]) // ids pela ordem escolhida
   const [gallery, setGallery] = useState(null) // serviço com as fotos abertas
   const [time, setTime] = useState(null)
-  const [form, setForm] = useState({ name: '', email: '', phone: '', notes: '' })
+  const [form, setForm] = useState({ name: '', email: '', phone: '', notes: '', referral: '', code: '', marketing: false })
+  const [cookies, setCookies] = useState(getConsent())
   const [sending, setSending] = useState(false)
   const [error, setError] = useState('')
   const [token, setToken] = useState('')
@@ -30,10 +34,25 @@ export default function BookingPage() {
     })
   }, [slug])
 
+  // etiqueta de anúncios do salão — só depois de aceitar os cookies
+  useEffect(() => {
+    if (salon?.google_tag_id && cookies === 'granted') {
+      loadGoogleTag(salon.google_tag_id)
+      track('page_view', { page_title: `Marcar — ${salon.name}`, page_location: location.href })
+    }
+  }, [salon, cookies])
+
+  function answerCookies(v) {
+    const was = getConsent()
+    setConsent(v)
+    setCookies(v)
+    if (was === 'granted' && v === 'denied') location.reload() // descarrega a etiqueta já ativa
+  }
+
   useEffect(() => {
     try {
       const saved = JSON.parse(localStorage.getItem('cliente') ?? 'null')
-      if (saved) setForm((f) => ({ ...f, ...saved, notes: '' }))
+      if (saved) setForm((f) => ({ ...f, name: saved.name ?? '', email: saved.email ?? '', phone: saved.phone ?? '' }))
     } catch {}
   }, [])
 
@@ -67,14 +86,18 @@ export default function BookingPage() {
     if (email && !validEmail(email)) return setError('O e-mail parece inválido.')
     setSending(true)
     setError('')
-    const { data, error } = await sb.rpc('create_booking', {
+    const code = form.referral === 'Indicação de uma amiga' ? form.code.trim().toUpperCase() : ''
+    const notes = [code && `Código de indicação: ${code}`, form.notes.trim()].filter(Boolean).join('\n')
+    const { data, error } = await sb.rpc('create_booking_v2', {
       p_slug: salon.slug,
       p_service_ids: picked,
       p_starts_at: time.toISOString(),
       p_name: form.name,
       p_email: email || null,
       p_phone: phone || null,
-      p_notes: form.notes || null,
+      p_notes: notes || null,
+      p_marketing: form.marketing,
+      p_referral: form.referral || null,
     })
     setSending(false)
     if (error) {
@@ -90,6 +113,10 @@ export default function BookingPage() {
       localStorage.setItem('cliente', JSON.stringify({ name: form.name, email, phone }))
     } catch {}
     notify({ event: 'requested', token: data.manage_token })
+    // medição (sem dados pessoais): só o valor e os serviços
+    const value = totalCents != null ? totalCents / 100 : undefined
+    track('marcacao_concluida', { value, currency: 'EUR', items: chosen.map((s) => ({ item_name: s.name })) })
+    trackConversion(salon.google_ads_conversion, value)
     setToken(data.manage_token)
     setStep('done')
   }
@@ -143,7 +170,7 @@ export default function BookingPage() {
             )
           })}
           {chosen.length > 0 && (
-            <button className="btn primary big sticky" onClick={() => { setStep('time'); setError('') }}>
+            <button className="btn primary big sticky" onClick={() => { setStep('time'); setError(''); track('marcacao_iniciada', { items: chosen.map((s) => ({ item_name: s.name })) }) }}>
               Continuar · {chosen.length} {chosen.length === 1 ? 'serviço' : 'serviços'} · {fDur(totalMin)}
               {totalCents != null && ` · ${fMoney(totalCents)}`}
             </button>
@@ -183,11 +210,28 @@ export default function BookingPage() {
           </label>
           <p className="muted small" style={{ marginTop: -6 }}>Preencha pelo menos um dos dois (telemóvel ou e-mail).</p>
           <label>
+            Como nos conheceu? <span className="muted">(opcional)</span>
+            <select value={form.referral} onChange={set('referral')}>
+              <option value="">Escolher…</option>
+              {REFERRALS.map((r) => <option key={r} value={r}>{r}</option>)}
+            </select>
+          </label>
+          {form.referral === 'Indicação de uma amiga' && (
+            <label>
+              Código de indicação <span className="muted">(se tiver)</span>
+              <input maxLength={30} placeholder="Ex.: CAJU-ANA12" value={form.code} onChange={set('code')} />
+            </label>
+          )}
+          <label>
             Observações <span className="muted">(opcional)</span>
             <textarea maxLength={500} rows={2} value={form.notes} onChange={set('notes')} />
           </label>
+          <label className="check consent">
+            <input type="checkbox" checked={form.marketing} onChange={(e) => setForm({ ...form, marketing: e.target.checked })} />
+            <span>Quero receber de {salon.name}, por WhatsApp, SMS ou e-mail, o aviso de quando estiver na hora de voltar e novidades ou campanhas. Posso cancelar quando quiser. <span className="muted">(opcional)</span></span>
+          </label>
           <button className="btn primary big" disabled={sending}>{sending ? 'A enviar…' : 'Pedir marcação'}</button>
-          <p className="muted small legal-note">Os seus dados servem só para gerir esta marcação e enviar-lhe o lembrete. <a href="privacidade.html" target="_blank" rel="noreferrer">Política de privacidade</a></p>
+          <p className="muted small legal-note">Os seus dados servem para gerir esta marcação e enviar-lhe o lembrete dela{form.marketing ? ' e, como autorizou, as mensagens acima' : ''}. <a href="privacidade.html" target="_blank" rel="noreferrer">Política de privacidade</a></p>
           <p className="muted small center-text">O horário fica reservado e {salon.name} confirma consigo.</p>
         </form>
       )}
@@ -211,10 +255,22 @@ export default function BookingPage() {
         </section>
       )}
 
+      {salon.google_tag_id && cookies == null && (
+        <div className="cookie-banner" role="dialog" aria-label="Cookies">
+          <p className="small">
+            Usamos cookies do Google para saber se os nossos anúncios trazem marcações. Só os ativamos se aceitar.{' '}
+            <a href="privacidade.html#cookies" target="_blank" rel="noreferrer">Saber mais</a>
+          </p>
+          <div className="cookie-actions">
+            <button type="button" className="btn" onClick={() => answerCookies('denied')}>Recusar</button>
+            <button type="button" className="btn" onClick={() => answerCookies('granted')}>Aceitar</button>
+          </div>
+        </div>
+      )}
       {gallery && <Lightbox photos={gallery.photos} title={gallery.name} onClose={() => setGallery(null)} />}
       <footer className="foot">
         {salon.phone && <a href={`tel:${salon.phone}`}>{salon.phone}</a>}
-        <span className="legal-links"><a href="privacidade.html">Privacidade</a> · <a href="termos.html">Termos</a></span>
+        <span className="legal-links"><a href="privacidade.html">Privacidade</a> · <a href="termos.html">Termos</a>{salon.google_tag_id && <> · <button type="button" className="link small" onClick={() => setCookies(null)}>Cookies</button></>}</span>
       </footer>
     </div>
   )
