@@ -274,7 +274,7 @@ export function Settings({ salon, reload }) {
     wa_reminders_enabled: salon.wa_reminders_enabled, wa_reminder_hours: salon.wa_reminder_hours, reminder_channel: salon.reminder_channel ?? 'whatsapp',
     maps_url: salon.maps_url ?? '', sell_products: salon.sell_products ?? false, push_upcoming: salon.push_upcoming, push_upcoming_min: salon.push_upcoming_min,
     min_notice_hours: salon.min_notice_hours, max_days_ahead: salon.max_days_ahead, cancel_limit_hours: salon.cancel_limit_hours, slot_step_min: salon.slot_step_min,
-    google_tag_id: salon.google_tag_id ?? '', google_ads_conversion: salon.google_ads_conversion ?? '',
+    google_tag_id: salon.google_tag_id ?? '', google_ads_conversion: salon.google_ads_conversion ?? '', umami_website_id: salon.umami_website_id ?? '',
   })
   const [ok, setOk] = useState('')
   const [error, setError] = useState('')
@@ -284,7 +284,7 @@ export function Settings({ salon, reload }) {
 
   async function save(e) {
     e.preventDefault(); setOk(''); setError('')
-    const { error } = await sb.from('salons').update({ ...f, phone: f.phone || null, address: f.address || null, notify_email: f.notify_email || null, maps_url: f.maps_url.trim() || null, google_tag_id: f.google_tag_id.trim() || null, google_ads_conversion: f.google_ads_conversion.trim() || null }).eq('id', salon.id)
+    const { error } = await sb.from('salons').update({ ...f, phone: f.phone || null, address: f.address || null, notify_email: f.notify_email || null, maps_url: f.maps_url.trim() || null, google_tag_id: f.google_tag_id.trim() || null, google_ads_conversion: f.google_ads_conversion.trim() || null, umami_website_id: f.umami_website_id.trim() || null }).eq('id', salon.id)
     if (error) return setError(errMsg(error))
     setOk('Guardado ✓'); reload()
   }
@@ -368,6 +368,10 @@ export function Settings({ salon, reload }) {
         <label>
           Conversão “Marcação concluída” <span className="muted">(opcional, ex.: AW-123456789/AbC-dEf)</span>
           <input value={f.google_ads_conversion} onChange={(e) => setF({ ...f, google_ads_conversion: e.target.value })} />
+        </label>
+        <label>
+          ID do site no Umami <span className="muted">(medição sem cookies, dados.agendacaju.com)</span>
+          <input value={f.umami_website_id} onChange={(e) => setF({ ...f, umami_website_id: e.target.value })} />
         </label>
         <button className="btn primary">Guardar</button>
       </form>

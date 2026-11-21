@@ -3,7 +3,7 @@ import { useParams } from 'react-router-dom'
 import SlotPicker from './SlotPicker.jsx'
 import { Lightbox } from './Photos.jsx'
 import { sb, notify, errMsg, fDayTime, fMoney, fDur, validEmail, validPhone } from './lib.js'
-import { getConsent, setConsent, loadGoogleTag, track, trackConversion } from './tracking.js'
+import { getConsent, setConsent, loadGoogleTag, track, trackConversion, loadUmami, umamiEvent } from './tracking.js'
 
 const REFERRALS = ['Google', 'Instagram', 'Facebook', 'Indicação de uma amiga', 'Já sou cliente', 'Outro']
 
@@ -33,6 +33,11 @@ export default function BookingPage() {
       if (data) document.title = `Marcar — ${data.name}`
     })
   }, [slug])
+
+  // medição sem cookies (Umami) — não depende do banner
+  useEffect(() => {
+    if (salon?.umami_website_id) loadUmami(salon.umami_website_id, `/s/${salon.slug}`)
+  }, [salon])
 
   // etiqueta de anúncios do salão — só depois de aceitar os cookies
   useEffect(() => {
@@ -117,6 +122,7 @@ export default function BookingPage() {
     const value = totalCents != null ? totalCents / 100 : undefined
     track('marcacao_concluida', { value, currency: 'EUR', items: chosen.map((s) => ({ item_name: s.name })) })
     trackConversion(salon.google_ads_conversion, value)
+    umamiEvent('marcacao_concluida', { valor: value ?? 0, servicos: chosen.length, origem: form.referral || 'nao_indicado', autorizou_marketing: form.marketing })
     setToken(data.manage_token)
     setStep('done')
   }
@@ -170,7 +176,7 @@ export default function BookingPage() {
             )
           })}
           {chosen.length > 0 && (
-            <button className="btn primary big sticky" onClick={() => { setStep('time'); setError(''); track('marcacao_iniciada', { items: chosen.map((s) => ({ item_name: s.name })) }) }}>
+            <button className="btn primary big sticky" onClick={() => { setStep('time'); setError(''); track('marcacao_iniciada', { items: chosen.map((s) => ({ item_name: s.name })) }); umamiEvent('marcacao_iniciada', { servicos: chosen.length }) }}>
               Continuar · {chosen.length} {chosen.length === 1 ? 'serviço' : 'serviços'} · {fDur(totalMin)}
               {totalCents != null && ` · ${fMoney(totalCents)}`}
             </button>

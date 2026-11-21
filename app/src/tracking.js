@@ -46,3 +46,31 @@ export function trackConversion(sendTo, value) {
   if (!loadedId || !sendTo || typeof window.gtag !== 'function') return
   window.gtag('event', 'conversion', { send_to: sendTo, value: value ?? undefined, currency: 'EUR' })
 }
+
+// ---------- Umami (self-hosted, sem cookies — não precisa de consentimento) ----------
+const UMAMI_SRC = 'https://dados.agendacaju.com/script.js'
+let umamiId = null
+const umamiQueue = []
+
+export function loadUmami(websiteId, path) {
+  if (!websiteId || umamiId) return
+  if (!/^[0-9a-f-]{36}$/i.test(websiteId)) return
+  umamiId = websiteId
+  const s = document.createElement('script')
+  s.defer = true
+  s.src = UMAMI_SRC
+  s.dataset.websiteId = websiteId
+  s.dataset.autoTrack = 'false' // a app usa rotas #/, por isso as visitas são registadas à mão
+  s.onload = () => {
+    window.umami?.track((p) => ({ ...p, url: path, title: document.title }))
+    while (umamiQueue.length) window.umami?.track(...umamiQueue.shift())
+  }
+  document.head.appendChild(s)
+}
+
+// Evento sem dados pessoais (nunca nome, telemóvel ou e-mail).
+export function umamiEvent(name, data) {
+  if (!umamiId) return
+  if (window.umami) window.umami.track(name, data)
+  else umamiQueue.push([name, data])
+}
