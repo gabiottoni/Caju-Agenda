@@ -136,3 +136,11 @@ label.check.consent input { width: 20px; height: 20px; flex: 0 0 20px; margin-to
 .cookie-actions { display: flex; gap: 8px }
 .cookie-actions .btn { flex: 1 }
 .foot .legal-links .link.small { font-size: inherit; padding: 0; text-decoration: underline }
+
+/* Escritório (Caju Office) */
+.office-prop { border-top: 1px solid rgba(0,0,0,.08); padding-top: 12px }
+.office-prop p { margin: 0 }
+.office-ad summary { cursor: pointer; font-weight: 600 }
+.office-ad ul { margin: 6px 0 6px 18px; padding: 0 }
+.office-table { width: 100%; border-collapse: collapse; font-size: .92em }
+.office-table th, .office-table td { text-align: left; padding: 6px 4px; border-bottom: 1px solid rgba(0,0,0,.06) }

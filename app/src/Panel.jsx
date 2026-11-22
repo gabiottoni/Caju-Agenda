@@ -10,6 +10,7 @@ import { RevenueTab } from './Revenue.jsx'
 import { MessagesTab } from './Messages.jsx'
 import { BookingSheet } from './BookingSheet.jsx'
 import { ProductsTab } from './Products.jsx'
+import { OfficeTab } from './Office.jsx'
 
 const TABS = [
   ['pending', 'Pedidos'],
@@ -18,6 +19,7 @@ const TABS = [
   ['revenue', 'Faturação'],
   ['products', 'Produtos'],
   ['messages', 'Mensagens'],
+  ['office', 'Escritório'],
   ['services', 'Serviços'],
   ['hours', 'Horários'],
   ['blocks', 'Bloqueios'],
@@ -122,7 +124,7 @@ export default function Panel({ session }) {
         </p>
       )}
       <nav className="tabs" role="tablist">
-        {TABS.filter(([k]) => k !== 'products' || salon.sell_products).map(([k, label]) => (
+        {TABS.filter(([k]) => (k !== 'products' || salon.sell_products) && (k !== 'office' || salon.slug === 'caju-studio')).map(([k, label]) => (
           <button key={k} role="tab" aria-selected={tab === k} className={tab === k ? 'on' : ''} onClick={() => go(k)}>
             {label}
             {k === 'pending' && pendingCount > 0 && <span className="count">{pendingCount}</span>}
@@ -155,6 +157,7 @@ export default function Panel({ session }) {
         : <ClientsTab salon={salon} clients={clients} reload={load} openClient={openClient} />)}
       {tab === 'revenue' && <RevenueTab salon={salon} services={services} openBooking={setBookingId} />}
       {tab === 'products' && <ProductsTab salon={salon} clients={clients} />}
+      {tab === 'office' && <OfficeTab />}
       {tab === 'messages' && <MessagesTab salon={salon} openClient={openClient} clients={clients} reload={load} />}
       {tab === 'services' && <Services salon={salon} services={services} reload={load} />}
       {tab === 'hours' && <Hours salon={salon} hours={hours} reload={load} />}
