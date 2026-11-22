@@ -15,7 +15,7 @@ export function setConsent(v) {
 let loadedId = null
 
 // Carrega a etiqueta Google do salão (ID "GTM-…", "G-…" ou "AW-…") com o Consent Mode v2.
-export function loadGoogleTag(tagId) {
+export function loadGoogleTag(tagId, adsSendTo) {
   if (!tagId || loadedId === tagId) return
   if (!/^(GTM|G|AW|GT)-[A-Z0-9]+$/i.test(tagId)) return
   loadedId = tagId
@@ -33,6 +33,16 @@ export function loadGoogleTag(tagId) {
     ? `https://www.googletagmanager.com/gtm.js?id=${tagId}`
     : `https://www.googletagmanager.com/gtag/js?id=${tagId}`
   document.head.appendChild(s)
+  // A conversão do Google Ads ("AW-…/etiqueta") precisa da etiqueta AW- carregada.
+  // Com um contentor GTM- carregamos também o gtag.js do AW-, que lê o mesmo dataLayer.
+  const aw = /^(AW-\d+)\//i.exec(adsSendTo || '')?.[1]
+  if (aw && aw.toUpperCase() !== tagId.toUpperCase()) {
+    window.gtag('config', aw)
+    const a = document.createElement('script')
+    a.async = true
+    a.src = `https://www.googletagmanager.com/gtag/js?id=${aw}`
+    document.head.appendChild(a)
+  }
 }
 
 // Evento para o Google (só se a etiqueta estiver carregada).

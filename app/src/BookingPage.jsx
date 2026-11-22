@@ -42,7 +42,7 @@ export default function BookingPage() {
   // etiqueta de anúncios do salão — só depois de aceitar os cookies
   useEffect(() => {
     if (salon?.google_tag_id && cookies === 'granted') {
-      loadGoogleTag(salon.google_tag_id)
+      loadGoogleTag(salon.google_tag_id, salon.google_ads_conversion)
       track('page_view', { page_title: `Marcar — ${salon.name}`, page_location: location.href })
     }
   }, [salon, cookies])
