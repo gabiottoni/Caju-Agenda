@@ -214,13 +214,16 @@ function ReminderBadge({ b, salon, busy, onToggle }) {
   )
 }
 
+// Origem das clientes novas marcadas à mão (o analyst usa isto para saber o que traz clientes)
+const SALON_REFERRALS = ['Google', 'Instagram', 'Facebook', 'Indicação de uma amiga', 'Passou no salão', 'WhatsApp', 'Outro']
+
 // Marcação feita pela profissional (WhatsApp, telefone, balcão)
 export function NewBooking({ salon, services, clients, bookings, presetClient, presetStart, onDone, onCancel }) {
   const active = services.filter((s) => s.active)
   const [clientId, setClientId] = useState(presetClient?.id ?? '')
   const [q, setQ] = useState('')
   const [isNew, setIsNew] = useState(false)
-  const [nc, setNc] = useState({ name: '', phone: '', email: '' })
+  const [nc, setNc] = useState({ name: '', phone: '', email: '', referral: '' })
   const [picked, setPicked] = useState([])
   const [date, setDate] = useState(isoDate(presetStart ?? new Date()))
   const [time, setTime] = useState(presetStart ? fTime(presetStart) : '10:00')
@@ -259,7 +262,7 @@ export function NewBooking({ salon, services, clients, bookings, presetClient, p
     if (isNew) {
       const { data, error } = await sb
         .from('clients')
-        .insert({ salon_id: salon.id, name: nc.name.trim(), phone: nc.phone.trim() || null, email: nc.email.trim().toLowerCase() || null, source: 'salon' })
+        .insert({ salon_id: salon.id, name: nc.name.trim(), phone: nc.phone.trim() || null, email: nc.email.trim().toLowerCase() || null, source: 'salon', referral_source: nc.referral || null })
         .select('*')
         .single()
       if (error) { setBusy(false); return setError(errMsg(error)) }
@@ -280,6 +283,7 @@ export function NewBooking({ salon, services, clients, bookings, presetClient, p
       ends_at: end.toISOString(),
       status: 'confirmed',
       source: 'salon',
+      referral_source: isNew ? (nc.referral || null) : null,
       wa_reminder: remind,
     })
     setBusy(false)
@@ -305,6 +309,12 @@ export function NewBooking({ salon, services, clients, bookings, presetClient, p
             <label>Telemóvel<input type="tel" value={nc.phone} onChange={(e) => setNc({ ...nc, phone: e.target.value })} /></label>
             <label>E-mail<input type="email" value={nc.email} onChange={(e) => setNc({ ...nc, email: e.target.value })} /></label>
           </div>
+          <label>Como nos conheceu?
+            <select value={nc.referral} onChange={(e) => setNc({ ...nc, referral: e.target.value })}>
+              <option value="">— escolher —</option>
+              {SALON_REFERRALS.map((r) => <option key={r} value={r}>{r}</option>)}
+            </select>
+          </label>
           <button type="button" className="link small" onClick={() => setIsNew(false)}>← procurar cliente existente</button>
         </div>
       ) : (
