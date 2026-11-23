@@ -13,6 +13,10 @@ const STEPS = [
   ['details', 'Dados'],
 ]
 
+// "[Combo] Olhar de Festa" → "olhar-de-festa"; "[PACK] Sobrancelha + Buço" → "sobrancelha-buco"
+export const slugServico = (n) =>
+  n.replace(/\[[^\]]*\]/g, '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
+
 export default function BookingPage() {
   const { slug = '' } = useParams()
   const [salon, setSalon] = useState(undefined)
@@ -31,6 +35,10 @@ export default function BookingPage() {
     sb.rpc('get_public_salon', { p_slug: slug }).then(({ data }) => {
       setSalon(data ?? null)
       if (data) document.title = `Marcar — ${data.name}`
+      // ?servico=olhar-de-festa (links de anúncios) → serviço já escolhido
+      const pre = new URLSearchParams(location.search).get('servico')
+      const s = pre && data?.services?.find((x) => slugServico(x.name) === pre)
+      if (s) setPicked([s.id])
     })
   }, [slug])
 
