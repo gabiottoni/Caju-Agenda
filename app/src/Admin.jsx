@@ -1,6 +1,6 @@
 import { QrBlock } from './Qr.jsx'
 import { PhotoEditor, deletePhotos, CoverEditor } from './Photos.jsx'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { PushCard } from './Push.jsx'
 import { sb, errMsg, fDur, fMoney, WEEKDAYS, isoDate, addDays, fDay, fTime, SUPABASE_URL } from './lib.js'
 
@@ -12,6 +12,9 @@ export function Services({ salon, services, reload }) {
   const [editId, setEditId] = useState(null)
   const [open, setOpen] = useState(false)
   const [error, setError] = useState('')
+  const formRef = useRef(null)
+  // leva o ecrã até ao formulário quando abre (no telemóvel a lista é comprida)
+  useEffect(() => { if (open) formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }) }, [open, editId])
 
   function edit(s) {
     setEditId(s.id); setOpen(true)
@@ -52,27 +55,8 @@ export function Services({ salon, services, reload }) {
     reload()
   }
 
-  return (
-    <div className="stack">
-      {services.length === 0 && <p className="empty">Adicione o primeiro serviço para as clientes poderem marcar.</p>}
-      {services.map((s, i) => (
-        <div key={s.id} className={`card service-admin ${s.active ? '' : 'inactive'}`}>
-          {s.photos?.[0] && <img className="svc-thumb" src={s.photos[0]} alt="" />}
-          <div className="grow">
-            <strong>{s.name}</strong>
-            <span className="muted small block">{fDur(s.duration_min)} · {s.compare_cents ? <><s>{fMoney(s.compare_cents)}</s> </> : null}{fMoney(s.price_cents) || 'sem preço'}{!s.active && ' · oculto'}</span>
-          </div>
-          <div className="row-actions">
-            <button className="btn small ghost" aria-label="Subir" disabled={i === 0} onClick={() => move(s, -1)}>↑</button>
-            <button className="btn small ghost" aria-label="Descer" disabled={i === services.length - 1} onClick={() => move(s, 1)}>↓</button>
-            <button className="btn small ghost" onClick={() => edit(s)}>Editar</button>
-            <button className="btn small ghost" onClick={() => toggle(s)}>{s.active ? 'Ocultar' : 'Mostrar'}</button>
-            <button className="btn small ghost danger" onClick={() => del(s)}>Apagar</button>
-          </div>
-        </div>
-      ))}
-      {open ? (
-        <form className="card stack" onSubmit={save}>
+  const form = (
+        <form className="card stack" onSubmit={save} ref={formRef}>
           <h3>{editId ? 'Editar serviço' : 'Novo serviço'}</h3>
           {error && <p className="alert">{error}</p>}
           <label>Nome<input required maxLength={80} placeholder="Sobrancelha à linha" value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} /></label>
@@ -92,7 +76,31 @@ export function Services({ salon, services, reload }) {
             <button type="button" className="btn ghost" onClick={() => setOpen(false)}>Cancelar</button>
           </div>
         </form>
-      ) : (
+  )
+
+  return (
+    <div className="stack">
+      {services.length === 0 && <p className="empty">Adicione o primeiro serviço para as clientes poderem marcar.</p>}
+      {services.map((s, i) => (
+        <div key={s.id} className="stack tight">
+        <div className={`card service-admin ${s.active ? '' : 'inactive'}`}>
+          {s.photos?.[0] && <img className="svc-thumb" src={s.photos[0]} alt="" />}
+          <div className="grow">
+            <strong>{s.name}</strong>
+            <span className="muted small block">{fDur(s.duration_min)} · {s.compare_cents ? <><s>{fMoney(s.compare_cents)}</s> </> : null}{fMoney(s.price_cents) || 'sem preço'}{!s.active && ' · oculto'}</span>
+          </div>
+          <div className="row-actions">
+            <button className="btn small ghost" aria-label="Subir" disabled={i === 0} onClick={() => move(s, -1)}>↑</button>
+            <button className="btn small ghost" aria-label="Descer" disabled={i === services.length - 1} onClick={() => move(s, 1)}>↓</button>
+            <button className="btn small ghost" onClick={() => edit(s)}>Editar</button>
+            <button className="btn small ghost" onClick={() => toggle(s)}>{s.active ? 'Ocultar' : 'Mostrar'}</button>
+            <button className="btn small ghost danger" onClick={() => del(s)}>Apagar</button>
+          </div>
+        </div>
+        {open && editId === s.id && form}
+        </div>
+      ))}
+      {open && !editId ? form : !open && (
         <button className="btn primary" onClick={() => { setOpen(true); setEditId(null); setF(EMPTY) }}>+ Novo serviço</button>
       )}
     </div>
