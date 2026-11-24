@@ -91,3 +91,48 @@ export function Lightbox({ photos, start = 0, title, onClose }) {
     </div>
   )
 }
+
+// imagem de capa no topo da página de marcação
+export function CoverEditor({ salon, reload }) {
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState('')
+  async function save(url) {
+    const { error } = await sb.from('salons').update({ cover_url: url }).eq('id', salon.id)
+    if (error) throw error
+    if (salon.cover_url && salon.cover_url !== url) deletePhotos([salon.cover_url])
+    reload()
+  }
+  async function pick(e) {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    setBusy(true); setErr('')
+    try {
+      const blob = await shrink(file)
+      const path = `${salon.id}/capa-${crypto.randomUUID()}.jpg`
+      const { error } = await sb.storage.from(BUCKET).upload(path, blob, { contentType: 'image/jpeg', cacheControl: '31536000' })
+      if (error) throw error
+      await save(sb.storage.from(BUCKET).getPublicUrl(path).data.publicUrl)
+    } catch (e2) { setErr(e2.message ?? String(e2)) }
+    setBusy(false)
+  }
+  async function remove() {
+    if (!confirm('Tirar a imagem de capa?')) return
+    try { await save(null) } catch (e2) { setErr(e2.message ?? String(e2)) }
+  }
+  return (
+    <section className="card stack">
+      <h3>🖼️ Imagem de capa</h3>
+      <p className="muted small">Aparece no topo da página de marcação. Use uma foto na horizontal do espaço ou de um trabalho.</p>
+      {err && <p className="alert">{err}</p>}
+      {salon.cover_url && <img className="cover-preview" src={salon.cover_url} alt="Capa atual" />}
+      <div className="row-actions">
+        <label className={`btn small ${busy ? 'disabled' : ''}`}>
+          {busy ? 'A enviar…' : salon.cover_url ? 'Trocar imagem' : 'Escolher imagem'}
+          <input type="file" accept="image/*" hidden disabled={busy} onChange={pick} />
+        </label>
+        {salon.cover_url && <button type="button" className="btn small ghost danger" onClick={remove}>Remover</button>}
+      </div>
+    </section>
+  )
+}

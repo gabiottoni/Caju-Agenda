@@ -139,6 +139,7 @@ export default function BookingPage() {
 
   return (
     <div className="page booking">
+      {salon.cover_url && <img className="booking-cover" src={salon.cover_url} alt={salon.name} />}
       <header className="brand-head">
         <p className="eyebrow">Marcação online</p>
         <h1>{salon.name}</h1>
@@ -173,7 +174,8 @@ export default function BookingPage() {
                   {s.description && <span className="muted small block">{s.description}</span>}
                 </span>
                 <span className="service-meta">
-                  <span>{fMoney(s.price_cents)}</span>
+                  {s.compare_cents > (s.price_cents ?? 0) && <span className="price-old">{fMoney(s.compare_cents)}</span>}
+                  <span className={s.compare_cents > (s.price_cents ?? 0) ? 'price-promo' : ''}>{fMoney(s.price_cents)}</span>
                   <span className="muted small">{fDur(s.duration_min)}</span>
                 </span>
               </button>

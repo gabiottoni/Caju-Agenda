@@ -1,10 +1,11 @@
 import { QrBlock } from './Qr.jsx'
-import { PhotoEditor, deletePhotos } from './Photos.jsx'
+import { PhotoEditor, deletePhotos, CoverEditor } from './Photos.jsx'
 import { useState } from 'react'
 import { PushCard } from './Push.jsx'
 import { sb, errMsg, fDur, fMoney, WEEKDAYS, isoDate, addDays, fDay, fTime, SUPABASE_URL } from './lib.js'
 
-const EMPTY = { name: '', description: '', duration: '30', price: '', photos: [] }
+const EMPTY = { name: '', description: '', duration: '30', price: '', compare: '', photos: [] }
+const cents = (v) => (v === '' ? null : Math.round(Number(v.replace(',', '.')) * 100))
 
 export function Services({ salon, services, reload }) {
   const [f, setF] = useState(EMPTY)
@@ -14,7 +15,7 @@ export function Services({ salon, services, reload }) {
 
   function edit(s) {
     setEditId(s.id); setOpen(true)
-    setF({ name: s.name, description: s.description ?? '', duration: String(s.duration_min), price: s.price_cents == null ? '' : String(s.price_cents / 100), photos: s.photos ?? [] })
+    setF({ name: s.name, description: s.description ?? '', duration: String(s.duration_min), price: s.price_cents == null ? '' : String(s.price_cents / 100), compare: s.compare_cents == null ? '' : String(s.compare_cents / 100), photos: s.photos ?? [] })
   }
   async function save(e) {
     e.preventDefault(); setError('')
@@ -23,9 +24,11 @@ export function Services({ salon, services, reload }) {
       name: f.name.trim(),
       description: f.description.trim() || null,
       duration_min: Number(f.duration),
-      price_cents: f.price === '' ? null : Math.round(Number(f.price.replace(',', '.')) * 100),
+      price_cents: cents(f.price),
+      compare_cents: cents(f.compare),
       photos: f.photos,
     }
+    if (row.compare_cents != null && (row.price_cents == null || row.compare_cents <= row.price_cents)) return setError('O “preço antes” tem de ser maior do que o preço.')
     const before = editId ? services.find((x) => x.id === editId)?.photos ?? [] : []
     const { error } = editId ? await sb.from('services').update(row).eq('id', editId) : await sb.from('services').insert({ ...row, sort: services.length })
     if (error) return setError(errMsg(error))
@@ -57,7 +60,7 @@ export function Services({ salon, services, reload }) {
           {s.photos?.[0] && <img className="svc-thumb" src={s.photos[0]} alt="" />}
           <div className="grow">
             <strong>{s.name}</strong>
-            <span className="muted small block">{fDur(s.duration_min)} · {fMoney(s.price_cents) || 'sem preço'}{!s.active && ' · oculto'}</span>
+            <span className="muted small block">{fDur(s.duration_min)} · {s.compare_cents ? <><s>{fMoney(s.compare_cents)}</s> </> : null}{fMoney(s.price_cents) || 'sem preço'}{!s.active && ' · oculto'}</span>
           </div>
           <div className="row-actions">
             <button className="btn small ghost" aria-label="Subir" disabled={i === 0} onClick={() => move(s, -1)}>↑</button>
@@ -78,6 +81,11 @@ export function Services({ salon, services, reload }) {
             <label>Duração (min)<input required type="number" min={5} max={600} step={5} value={f.duration} onChange={(e) => setF({ ...f, duration: e.target.value })} /></label>
             <label>Preço (€)<input inputMode="decimal" placeholder="25" value={f.price} onChange={(e) => setF({ ...f, price: e.target.value })} /></label>
           </div>
+          <label>
+            Preço antes (€) <span className="muted">(opcional — para promoções)</span>
+            <input inputMode="decimal" placeholder="Ex.: 65" value={f.compare} onChange={(e) => setF({ ...f, compare: e.target.value })} />
+            <span className="muted small">Aparece riscado ao lado do preço: <s>65 €</s> 55 €</span>
+          </label>
           <PhotoEditor salonId={salon.id} value={f.photos} onChange={(photos) => setF({ ...f, photos })} />
           <div className="row-actions">
             <button className="btn primary">Guardar</button>
@@ -309,6 +317,7 @@ export function Settings({ salon, reload }) {
         </label>
         <button className="btn primary">Guardar</button>
       </form>
+      <CoverEditor salon={salon} reload={reload} />
       <section className="card stack">
         <h3>Link para as clientes</h3>
         <p className="muted small">Ponha na bio do Instagram, no WhatsApp Business e no Google.</p>

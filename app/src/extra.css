@@ -144,3 +144,11 @@ label.check.consent input { width: 20px; height: 20px; flex: 0 0 20px; margin-to
 .office-ad ul { margin: 6px 0 6px 18px; padding: 0 }
 .office-table { width: 100%; border-collapse: collapse; font-size: .92em }
 .office-table th, .office-table td { text-align: left; padding: 6px 4px; border-bottom: 1px solid rgba(0,0,0,.06) }
+
+/* capa da página de marcação */
+.booking-cover { display: block; width: calc(100% + 32px); margin: calc(-24px - env(safe-area-inset-top)) -16px 16px; aspect-ratio: 16 / 10; max-height: 320px; object-fit: cover; border-radius: 0 0 22px 22px }
+@media (min-width: 560px) { .booking-cover { width: 100%; margin: 0 0 16px; border-radius: 18px } }
+.cover-preview { width: 100%; aspect-ratio: 16 / 10; object-fit: cover; border-radius: 12px }
+/* preço promocional */
+.price-old { text-decoration: line-through; color: var(--muted); font-size: .82rem }
+.price-promo { color: var(--brand); font-weight: 700 }
